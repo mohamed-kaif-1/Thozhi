@@ -1,0 +1,28 @@
+{
+  "name": "THOZHI (தோழி) — Multilingual AI Personal Planning Assistant",
+  "short_name": "THOZHI",
+  "description": "The AI proposes. The user decides. Sovereign AI personal planning assistant powered by Gnani AI Prisma v3.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080B11",
+  "theme_color": "#080B11",
+  "icons": [
+    {
+      "src": "/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/thozhi-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

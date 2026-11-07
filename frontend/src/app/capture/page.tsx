@@ -16,8 +16,8 @@ import {
   Info,
   CheckCircle2,
   Trash2,
-  Layers
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export default function CapturePage() {
   const [inputText, setInputText] = useState("");
@@ -117,16 +117,19 @@ export default function CapturePage() {
     <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-sky-500/20">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-            <span>Thought Capture Studio</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-400/30 text-sky-400 font-semibold uppercase tracking-wider">
-              Multilingual Voice & Text
-            </span>
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Express yourself freely in Tamil, Tanglish, or English. THOZHI extracts tasks and commitments for your approval.
-          </p>
+        <div className="flex items-center gap-3.5">
+          <BrandLogo variant="icon" className="w-12 h-12 flex-shrink-0 hidden sm:block" alt="THOZHI Mascot" priority />
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
+              <span>Thought Capture Studio</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-400/30 text-sky-400 font-semibold uppercase tracking-wider">
+                Multilingual Voice & Text
+              </span>
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Express yourself freely in Tamil, Tanglish, or English. THOZHI extracts tasks and commitments for your approval.
+            </p>
+          </div>
         </div>
 
         {/* Gnani Engine Telemetry Badge */}
@@ -313,10 +316,15 @@ export default function CapturePage() {
         <div className="lg:col-span-5 space-y-6">
           {/* Pipeline Information Card */}
           <div className="surface-card p-5 border-sky-500/20 bg-gradient-to-br from-canvas-card to-slate-900/60">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
-              <Layers className="w-4 h-4 text-cyber-amber-400" />
-              <span>Sovereign Intent Pipeline</span>
-            </h3>
+            <div className="flex items-center gap-3 mb-3">
+              <BrandLogo variant="icon" className="w-9 h-9 flex-shrink-0" alt="THOZHI Mascot" />
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Sovereign Intent Pipeline</span>
+                </h3>
+                <span className="text-[10px] text-sky-400 font-semibold">Gnani AI Prisma v3 Engine</span>
+              </div>
+            </div>
             <p className="text-xs text-slate-400 leading-relaxed mb-3">
               1. <strong>Capture:</strong> Streams raw audio to Gnani Prisma v3.<br />
               2. <strong>Extraction:</strong> LLM classifies Tasks, Deadlines, and Conditions.<br />

@@ -10,7 +10,6 @@ import {
   reopenTask as apiReopenTask,
 } from "@/lib/api";
 import {
-  CheckSquare,
   Plus,
   Search,
   Filter,
@@ -24,6 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 
 // Mock seed tasks if backend store is currently empty
@@ -378,9 +378,9 @@ export default function TasksPage() {
         <div className="space-y-3">
           {filteredTasks.length === 0 ? (
             <div className="surface-card p-12 text-center text-slate-400 space-y-3">
-              <CheckSquare className="w-12 h-12 text-slate-600 mx-auto" />
-              <p className="text-base font-bold text-slate-300">No tasks match your filters</p>
-              <p className="text-xs text-slate-500">
+              <BrandLogo variant="icon" className="w-14 h-14 mx-auto opacity-75 mb-1" alt="THOZHI Mascot" />
+              <p className="text-base font-bold text-slate-200">No tasks match your filters</p>
+              <p className="text-xs text-slate-400">
                 Capture thoughts via voice or click &apos;New Task&apos; to create one manually.
               </p>
             </div>

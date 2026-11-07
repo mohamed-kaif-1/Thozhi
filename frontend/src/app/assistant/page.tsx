@@ -8,6 +8,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 interface ChatMessage {
   id: string;
@@ -133,9 +134,7 @@ export default function AssistantPage() {
               )}
             >
               {isAssistant && (
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 border border-sky-300/40 flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-md">
-                  தோ
-                </div>
+                <BrandLogo variant="icon" className="w-8 h-8 flex-shrink-0" alt="THOZHI Assistant" />
               )}
 
               <div
@@ -162,9 +161,7 @@ export default function AssistantPage() {
 
         {isTyping && (
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-              தோ
-            </div>
+            <BrandLogo variant="icon" className="w-8 h-8 flex-shrink-0 animate-pulse" alt="THOZHI Thinking" />
             <div className="p-3.5 rounded-2xl bg-canvas-card border border-sky-500/20 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce" />
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce [animation-delay:0.2s]" />

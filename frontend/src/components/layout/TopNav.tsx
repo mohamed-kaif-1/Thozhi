@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Mic, Bell } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
@@ -30,14 +31,20 @@ export const TopNav: React.FC = () => {
   return (
     <header className="h-16 bg-canvas-card/80 backdrop-blur-md border-b border-sky-500/15 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
       {/* Page Title & Breadcrumb */}
-      <div>
-        <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
-          {getPageTitle(pathname)}
-        </h1>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
-          <span className="text-sky-400 font-semibold">THOZHI</span>
-          <span>•</span>
-          <span className="capitalize">{pathname === "/" ? "Home" : pathname.replace("/", "")}</span>
+      <div className="flex items-center gap-3">
+        <Link href="/" className="md:hidden flex items-center gap-2" aria-label="THOZHI Home">
+          <BrandLogo variant="icon" className="w-9 h-9" alt="THOZHI Mascot" priority />
+        </Link>
+        <div>
+          <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
+            {getPageTitle(pathname)}
+          </h1>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+            <BrandLogo variant="icon" className="w-3.5 h-3.5 inline-block opacity-80" />
+            <span className="text-sky-400 font-semibold">THOZHI</span>
+            <span>•</span>
+            <span className="capitalize">{pathname === "/" ? "Home" : pathname.replace("/", "")}</span>
+          </div>
         </div>
       </div>
 

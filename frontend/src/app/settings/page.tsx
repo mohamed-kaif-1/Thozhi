@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   Save,
   Cpu,
+  Sparkles,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 import {
   listMemoryPreferences,
@@ -321,6 +323,34 @@ export default function SettingsPage() {
               <Download className="w-4 h-4" />
               <span>Export Data (JSON)</span>
             </button>
+          </div>
+        </div>
+
+        {/* SECTION 5: BRAND IDENTITY & APP METADATA */}
+        <div className="surface-card p-6 border-sky-500/20 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+            <Sparkles className="w-5 h-5 text-cyber-amber-400" />
+            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+              Brand Identity & Application Profile
+            </h2>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-4 rounded-xl bg-canvas-subtle/80 border border-sky-500/15">
+            <BrandLogo variant="horizontal" className="h-12 w-auto flex-shrink-0" alt="THOZHI Brand Identity" />
+            <div className="space-y-1.5 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="text-sm font-black text-white">THOZHI (தோழி) v1.0.0</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                  Production Build
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Multilingual AI Personal Planning Assistant with Gnani AI Prisma v3 Indic Speech Pipeline.
+              </p>
+              <p className="text-[11px] text-cyber-amber-400 font-semibold italic">
+                &ldquo;The AI proposes. The user decides.&rdquo;
+              </p>
+            </div>
           </div>
         </div>
 

@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 interface NavItem {
   name: string;
@@ -56,23 +57,10 @@ export const Sidebar: React.FC = () => {
       {/* Brand Header */}
       <div className="h-16 px-4 flex items-center justify-between border-b border-sky-500/15">
         <Link href="/" className="flex items-center gap-3 overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 border border-sky-300/40 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-sky-500/20 flex-shrink-0">
-            தோ
-          </div>
-          {!isCollapsed && (
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-lg tracking-tight text-white">
-                  THOZHI
-                </span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyber-amber-500/20 text-cyber-amber-400 border border-cyber-amber-500/30">
-                  AI
-                </span>
-              </div>
-              <span className="text-[10px] block text-sky-400 font-semibold tracking-wide">
-                Personal Planner
-              </span>
-            </div>
+          {isCollapsed ? (
+            <BrandLogo variant="icon" className="w-10 h-10 flex-shrink-0" alt="THOZHI Mascot" priority />
+          ) : (
+            <BrandLogo variant="horizontal" className="h-9 w-auto flex-shrink-0" alt="THOZHI — Daily Planner" priority />
           )}
         </Link>
 

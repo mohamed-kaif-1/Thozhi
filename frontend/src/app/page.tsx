@@ -21,11 +21,11 @@ import {
   Send,
   CheckCircle2,
   Circle,
-  Clock,
   Calendar,
   ArrowRight,
   Bot
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export default function Home() {
   const [inputText, setInputText] = useState("");
@@ -129,21 +129,24 @@ export default function Home() {
     <div className="space-y-8 pb-12">
       {/* Welcome & Daily Overview Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-sky-500/15 pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400">
-              வணக்கம் · Good morning
-            </span>
-            <span className="text-xs text-slate-400">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-            </span>
+        <div className="flex items-center gap-4">
+          <BrandLogo variant="icon" className="w-14 h-14 hidden sm:block flex-shrink-0" alt="THOZHI Mascot" priority />
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400">
+                வணக்கம் · Good morning
+              </span>
+              <span className="text-xs text-slate-400">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              Ready to plan your day, Karthi?
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Speak or type thoughts in Tamil, Tanglish, or English. The AI proposes. You decide.
+            </p>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-            Ready to plan your day, Karthi?
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Speak or type thoughts in Tamil, Tanglish, or English. The AI proposes. You decide.
-          </p>
         </div>
 
         {/* Quick Stats Badges */}
@@ -294,11 +297,11 @@ export default function Home() {
 
         {tasks.length === 0 ? (
           <div className="p-8 text-center surface-card border border-slate-800 rounded-xl space-y-2">
-            <Clock className="w-8 h-8 text-slate-500 mx-auto mb-1" />
-            <p className="text-sm font-bold text-slate-300">
+            <BrandLogo variant="icon" className="w-14 h-14 mx-auto opacity-75 mb-1" alt="THOZHI Mascot" />
+            <p className="text-sm font-bold text-slate-200">
               No confirmed tasks for today yet.
             </p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
               Speak or enter thoughts in the capture section above. Once you review and approve the proposal, your tasks will appear here.
             </p>
           </div>
