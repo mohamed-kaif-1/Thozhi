@@ -355,7 +355,7 @@ export default function MemoryPage() {
                   </p>
 
                   <div className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
-                    <Clock className="w-3 h-3" /> Updated: {new Date(pref.updated_at).toLocaleDateString()}
+                    <Clock className="w-3 h-3" /> Updated: {new Date(pref.updated_at || Date.now()).toLocaleDateString()}
                   </div>
                 </div>
 
