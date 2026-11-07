@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # THOZHI (தோழி) — Multilingual AI-Powered Personal Planning Assistant
 
-[![Python Tests](https://img.shields.io/badge/pytest-65%20passed-brightgreen.svg)]()
+[![Python Tests](https://img.shields.io/badge/pytest-125%20passed-brightgreen.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black.svg)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal.svg)]()
 [![Primary ASR](https://img.shields.io/badge/Primary%20ASR-Gnani%20AI%20Prisma%20v3-orange.svg)]()
@@ -68,7 +67,7 @@ Unlike conventional productivity tools that demand rigid form-filling, or generi
 ```bash
 python -m pytest backend/tests -v
 ```
-All 47 tests pass in ~15 seconds.
+All 125 tests pass in ~70 seconds.
 
 ### 2. Run Backend (FastAPI)
 ```bash
@@ -97,6 +96,4 @@ docker compose up --build -d
 2. **Strict RLS Policies:** Every database table enforces Row-Level Security ensuring tenant data isolation.
 3. **Idempotency Protection:** All proposal approvals require client-generated idempotency keys to eliminate double-booking or duplicated task creation.
 4. **Deterministic Scheduling:** All calendar conflict detection and topological sort calculations are deterministic. The LLM does not hallucinate time slots.
-=======
-# Thozhi
->>>>>>> origin/main
+

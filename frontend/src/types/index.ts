@@ -93,7 +93,7 @@ export interface Proposal {
 export interface CaptureRecord {
   id: string;
   user_id: string;
-  input_type: "VOICE" | "TEXT" | "voice" | "text" | string;
+  input_type: "AUDIO" | "TEXT" | "VOICE" | "voice" | "text" | string;
   transcript_text: string;
   original_transcript?: string | null;
   translated_transcript?: string | null;
