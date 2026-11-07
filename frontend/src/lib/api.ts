@@ -1,4 +1,4 @@
-import { Proposal, ProposalApproveRequest, ProposalItemDecision, Plan, Task, RescheduleSuggestion, UserProfile } from "@/types";
+import { Proposal, ProposalApproveRequest, ProposalItemDecision, Plan, Task, RescheduleSuggestion, UserProfile, CaptureRecord } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -311,3 +311,110 @@ export async function purgeAllPersonalData(): Promise<{ message: string }> {
   }
   return res.json();
 }
+
+export async function listCaptures(userId?: string): Promise<CaptureRecord[]> {
+  const url = new URL(`${API_BASE}/captures`);
+  if (userId) url.searchParams.append("user_id", userId);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error("Failed to load captures");
+  }
+  return res.json();
+}
+
+export async function getCapture(captureId: string): Promise<CaptureRecord> {
+  const res = await fetch(`${API_BASE}/captures/${captureId}`);
+  if (!res.ok) {
+    throw new Error(`Failed to load capture ${captureId}`);
+  }
+  return res.json();
+}
+
+export async function deleteCapture(captureId: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/captures/${captureId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete capture ${captureId}`);
+  }
+  return res.json();
+}
+
+export async function clearCaptures(): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/captures/clear`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to clear captures");
+  }
+  return res.json();
+}
+
+export async function listProposals(status?: string, captureId?: string): Promise<Proposal[]> {
+  const url = new URL(`${API_BASE}/proposals`);
+  if (status) url.searchParams.append("status", status);
+  if (captureId) url.searchParams.append("capture_id", captureId);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error("Failed to load proposals");
+  }
+  return res.json();
+}
+
+export async function getProposal(proposalId: string): Promise<Proposal> {
+  const res = await fetch(`${API_BASE}/proposals/${proposalId}`);
+  if (!res.ok) {
+    throw new Error(`Failed to load proposal ${proposalId}`);
+  }
+  return res.json();
+}
+
+export async function rejectProposal(proposalId: string, reason?: string): Promise<Proposal> {
+  const res = await fetch(`${API_BASE}/proposals/${proposalId}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: reason || "User rejected proposal" }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({ detail: "Proposal rejection failed" }))) as { detail?: string };
+    throw new Error(err.detail || "Proposal rejection failed");
+  }
+  return res.json();
+}
+
+export async function batchApproveProposals(
+  proposalIds: string[],
+  idempotencyKey?: string
+): Promise<{ affected_count: number; proposal_ids: string[]; message: string }> {
+  const res = await fetch(`${API_BASE}/proposals/batch/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      proposal_ids: proposalIds,
+      idempotency_key: idempotencyKey || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `batch_${Date.now()}`),
+    }),
+  });
+  if (!res.ok) {
+    throw new Error("Batch approval failed");
+  }
+  return res.json();
+}
+
+export async function batchRejectProposals(
+  proposalIds: string[],
+  reason?: string
+): Promise<{ affected_count: number; proposal_ids: string[]; message: string }> {
+  const res = await fetch(`${API_BASE}/proposals/batch/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      proposal_ids: proposalIds,
+      reason: reason || "Batch rejected by user",
+    }),
+  });
+  if (!res.ok) {
+    throw new Error("Batch rejection failed");
+  }
+  return res.json();
+}
+

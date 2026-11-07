@@ -22,3 +22,4 @@ async def update_current_user_profile(payload: UserProfileUpdate):
         payload.model_dump(exclude_unset=True)
     )
     return UserProfileResponse(**updated)
+

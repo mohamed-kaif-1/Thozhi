@@ -74,11 +74,43 @@ export interface Proposal {
   original_intent_summary?: string | null;
   translated_intent_summary?: string | null;
   detected_language: string;
-  status: "PENDING_REVIEW" | "RESOLVED" | "EXPIRED";
+  status:
+    | "PROCESSING"
+    | "PENDING_REVIEW"
+    | "APPROVED"
+    | "REJECTED"
+    | "COMMITTED"
+    | "RESOLVED"
+    | "FAILED"
+    | "EXPIRED"
+    | string;
   created_at: string;
   expires_at: string;
   items: ProposalItem[];
   clarifications?: ClarificationQuestion[];
+}
+
+export interface CaptureRecord {
+  id: string;
+  user_id: string;
+  input_type: "VOICE" | "TEXT" | "voice" | "text" | string;
+  transcript_text: string;
+  original_transcript?: string | null;
+  translated_transcript?: string | null;
+  detected_language: string;
+  processing_status: "PROCESSING" | "COMPLETED" | "FAILED" | string;
+  lifecycle_status:
+    | "PENDING_REVIEW"
+    | "APPROVED"
+    | "COMMITTED"
+    | "REJECTED"
+    | "COMPLETED"
+    | string;
+  created_at: string;
+  proposal_ids: string[];
+  proposals?: Proposal[];
+  proposal_count?: number;
+  error_message?: string | null;
 }
 
 export interface ProposalItemDecision {

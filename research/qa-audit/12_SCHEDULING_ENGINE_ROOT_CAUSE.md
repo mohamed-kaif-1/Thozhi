@@ -171,3 +171,4 @@ All 11 regression test scenarios pass with 100% compliance:
 - **Case 9 (Mixed Tasks):** P1 tasks scheduled first with deadline proximity respected.
 - **Case 10 (User Duration Edit):** Updating to 60m recalculated plan and freed capacity.
 - **Case 11 (End-to-End API Flow):** Verified full pipeline from task creation to date-specific plan retrieval.
+

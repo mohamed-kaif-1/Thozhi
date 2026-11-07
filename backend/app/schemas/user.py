@@ -14,3 +14,4 @@ class UserProfileUpdate(BaseModel):
     email: Optional[str] = None
     locale: Optional[str] = None
     timezone: Optional[str] = None
+

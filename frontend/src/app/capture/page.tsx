@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MicButton } from "@/components/capture/MicButton";
 import { ProposalReviewCard } from "@/components/proposal/ProposalReviewCard";
 import { useProposalStore } from "@/store/proposalStore";
-import { captureText, captureAudio, submitProposalApproval } from "@/lib/api";
+import { captureText, captureAudio } from "@/lib/api";
 import {
-  Sparkles,
   Send,
   Languages,
   Radio,
@@ -17,33 +16,47 @@ import {
   CheckCircle2,
   Trash2,
   AlertCircle,
+  Inbox,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { cn } from "@/lib/utils";
+
+function formatCaptureTime(isoString?: string): string {
+  if (!isoString) return "Just now";
+  const date = new Date(isoString);
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diffSec < 60) return "Just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
 
 export default function CapturePage() {
   const [inputText, setInputText] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState<"ta" | "tanglish" | "en">("tanglish");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [recentCaptures, setRecentCaptures] = useState<
-    Array<{ id: string; text: string; time: string; type: "voice" | "text" }>
-  >([
-    {
-      id: "1",
-      text: "Naalaiku kaalaila 10 manikku project review irukku, adhellam prepare panni slide mudikanum.",
-      time: "10 mins ago",
-      type: "voice",
-    },
-    {
-      id: "2",
-      text: "Submit lab record by Friday 4 PM, otherwise penalty marks.",
-      time: "2 hours ago",
-      type: "text",
-    },
-  ]);
   const [notification, setNotification] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { activeProposal, setProposal, clearProposal, itemDecisions } = useProposalStore();
+  const {
+    captures,
+    proposals,
+    activeProposal,
+    activeCaptureId,
+    filterStatus,
+    setFilterStatus,
+    loadInitialQueue,
+    setProposal,
+    selectCapture,
+    commitActiveProposal,
+    rejectActiveProposal,
+    clearHistory,
+    isSubmitting,
+  } = useProposalStore();
+
+  useEffect(() => {
+    loadInitialQueue();
+  }, [loadInitialQueue]);
 
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,16 +67,9 @@ export default function CapturePage() {
       const textToCapture = inputText.trim();
       const proposal = await captureText(textToCapture);
       setProposal(proposal);
-      setRecentCaptures((prev) => [
-        {
-          id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          text: proposal.transcript_text || textToCapture,
-          time: "Just now",
-          type: "text",
-        },
-        ...prev,
-      ]);
       setInputText("");
+      setNotification("Thought captured and added to pending queue.");
+      setTimeout(() => setNotification(null), 4000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Capture failed: ${message}`);
@@ -79,16 +85,8 @@ export default function CapturePage() {
       setIsProcessing(true);
       const proposal = await captureAudio(audioBlob, selectedLanguage);
       setProposal(proposal);
-      const displayedText = proposal.transcript_text || proposal.intent_summary || "Audio capture session";
-      setRecentCaptures((prev) => [
-        {
-          id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          text: displayedText,
-          time: "Just now",
-          type: "voice",
-        },
-        ...prev,
-      ]);
+      setNotification("Audio transcribed and added to pending queue.");
+      setTimeout(() => setNotification(null), 4000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Audio capture failed: ${message}`);
@@ -101,24 +99,55 @@ export default function CapturePage() {
   const handleCommitProposal = async () => {
     if (!activeProposal) return;
     try {
-      setIsProcessing(true);
-      const decisions = Object.values(itemDecisions);
-      const res = await submitProposalApproval(activeProposal.id, decisions);
-      setNotification(res.message);
-      clearProposal();
-      setTimeout(() => setNotification(null), 5000);
+      const res = await commitActiveProposal();
+      if (res) {
+        setNotification(res.message);
+        setTimeout(() => setNotification(null), 5000);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Approval submission failed: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
-    } finally {
-      setIsProcessing(false);
+    }
+  };
+
+  const handleRejectProposal = async () => {
+    if (!activeProposal) return;
+    try {
+      await rejectActiveProposal("Rejected by user from queue review");
+      setNotification("Proposal marked as rejected. No tasks were added.");
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`Rejection failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (confirm("Clear visible capture stream history? (Committed tasks and pending proposals will remain safely preserved)")) {
+      await clearHistory();
+      setNotification("Capture stream history cleared. Tasks and proposals remain preserved.");
+      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   const applyTemplate = (template: string) => {
     setInputText(template);
   };
+
+  // Filter captures according to filterStatus
+  const filteredCaptures = captures.filter((c) => {
+    if (filterStatus === "ALL") return true;
+    if (filterStatus === "PENDING_REVIEW") return c.lifecycle_status === "PENDING_REVIEW";
+    if (filterStatus === "COMMITTED") return c.lifecycle_status === "COMMITTED";
+    if (filterStatus === "REJECTED") return c.lifecycle_status === "REJECTED";
+    return true;
+  });
+
+  const pendingProposalsCount = proposals.filter((p) => p.status === "PENDING_REVIEW").length;
+  const committedCount = captures.filter((c) => c.lifecycle_status === "COMMITTED").length;
+  const rejectedCount = captures.filter((c) => c.lifecycle_status === "REJECTED").length;
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto">
@@ -250,56 +279,47 @@ export default function CapturePage() {
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder={
-                    selectedLanguage === "tanglish"
-                      ? "E.g. Inaiki evening 5 manikku client call irukku, adhe mudichitu report submit pannanum..."
-                      : selectedLanguage === "ta"
-                      ? "எ.கா. இன்று மாலை 5 மணிக்கு வாடிக்கையாளர் அழைப்பு உள்ளது, அறிக்கை சமர்ப்பிக்க வேண்டும்..."
-                      : "E.g. Need to finalize budget report before 3pm and coordinate with engineering lead..."
-                  }
+                  placeholder="e.g. நாளைக்கு ஈவினிங் சிக்ஸ் ஓ க்ளாக் குள்ளே என்னோடய ரேவன் ஆப்பை கம்ப்ளீட் பண்ணணும்..."
                   rows={4}
-                  className="w-full rounded-xl bg-canvas-subtle border border-sky-500/20 p-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition resize-none"
-                  disabled={isProcessing}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-sky-500/60 transition resize-none"
                 />
               </div>
 
-              {/* Quick Prompt Starters */}
+              {/* Quick Template Chips */}
               <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-cyber-amber-400" /> Templates:
-                </span>
+                <span className="text-[11px] text-slate-500 font-medium">Quick examples:</span>
                 <button
                   type="button"
                   onClick={() =>
                     applyTemplate(
-                      "Inaiki evening 5 manikku client call irukku, adhe mudichitu report submit pannanum."
+                      "நாளைக்கு ஈவினிங் சிக்ஸ் ஓ க்ளாக் குள்ளே என்னோடய ரேவன் ஆப்பை கம்ப்ளீட் பண்ணணும்."
                     )
                   }
                   className="text-[11px] px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-slate-800 text-slate-400 hover:text-sky-300 border border-slate-800 transition"
                 >
-                  Tanglish Review
+                  Tamil Deadline
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     applyTemplate(
-                      "Tomorrow morning 9:30 AM team sprint planning meeting. Need 45 mins to review backlog tickets before that."
+                      "Review project pull requests tomorrow morning at 10 AM, need 45 minutes."
                     )
                   }
                   className="text-[11px] px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-slate-800 text-slate-400 hover:text-sky-300 border border-slate-800 transition"
                 >
-                  Sprint Meeting
+                  English Sprint
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     applyTemplate(
-                      "College assignment deadline is Friday 11:59 PM. Must finish chapters 4 and 5."
+                      "Friday evening 4 PM kulla lab manual record submission pannanum, romba mukkiyam."
                     )
                   }
                   className="text-[11px] px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-slate-800 text-slate-400 hover:text-sky-300 border border-slate-800 transition"
                 >
-                  College Deadline
+                  Tanglish Lab
                 </button>
               </div>
 
@@ -350,40 +370,148 @@ export default function CapturePage() {
             </div>
           </div>
 
-          {/* Recent Captures */}
+          {/* Recent Captures Stream */}
           <div className="surface-card p-5 border-sky-500/20">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <History className="w-4 h-4 text-sky-400" />
                 <span>Recent Capture Stream</span>
               </h3>
+              {captures.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="text-xs text-slate-500 hover:text-rose-400 flex items-center gap-1 transition"
+                  title="Clear visible stream (committed tasks remain intact)"
+                >
+                  <Trash2 className="w-3 h-3" /> Clear History
+                </button>
+              )}
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1.5 mb-4 border-b border-slate-800 pb-2 text-[11px]">
               <button
                 type="button"
-                onClick={() => setRecentCaptures([])}
-                className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition"
+                onClick={() => setFilterStatus("ALL")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md font-semibold transition",
+                  filterStatus === "ALL"
+                    ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+                    : "text-slate-400 hover:text-white"
+                )}
               >
-                <Trash2 className="w-3 h-3" /> Clear
+                All ({captures.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterStatus("PENDING_REVIEW")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md font-semibold transition flex items-center gap-1",
+                  filterStatus === "PENDING_REVIEW"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Pending ({pendingProposalsCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterStatus("COMMITTED")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md font-semibold transition",
+                  filterStatus === "COMMITTED"
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Committed ({committedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterStatus("REJECTED")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md font-semibold transition",
+                  filterStatus === "REJECTED"
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Rejected ({rejectedCount})
               </button>
             </div>
 
-            <div className="space-y-3">
-              {recentCaptures.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3.5 rounded-xl bg-canvas-subtle/80 border border-slate-800 hover:border-sky-500/30 transition text-xs space-y-1.5"
-                >
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span className="font-semibold text-sky-400 uppercase tracking-wider">
-                      {c.type === "voice" ? "🎙️ Voice" : "⌨️ Text"}
-                    </span>
-                    <span>{c.time}</span>
-                  </div>
-                  <p className="text-slate-200 line-clamp-2 leading-relaxed">
-                    {c.text}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {/* Capture Cards List */}
+            {filteredCaptures.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 text-xs">
+                <Inbox className="w-8 h-8 mx-auto mb-2 text-slate-600 opacity-60" />
+                <p>No captures found in this view.</p>
+                <p className="text-[11px] mt-1 text-slate-600">Speak or type your thoughts to create a capture.</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {filteredCaptures.map((c) => {
+                  const isSelected = activeCaptureId === c.id;
+                  const isVoice = c.input_type === "AUDIO";
+                  const status = c.lifecycle_status;
+
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => selectCapture(c.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          selectCapture(c.id);
+                        }
+                      }}
+                      className={cn(
+                        "p-3 rounded-xl border text-xs space-y-1.5 transition text-left cursor-pointer",
+                        isSelected
+                          ? "bg-sky-950/40 border-sky-500/60 shadow-md shadow-sky-950/30"
+                          : "bg-canvas-subtle/80 border-slate-800 hover:border-sky-500/40 hover:bg-slate-900/60"
+                      )}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-sky-400 flex items-center gap-1 uppercase tracking-wider">
+                          {isVoice ? "🎙️ Voice" : "⌨️ Text"}
+                          <span className="text-slate-500 font-normal">({c.detected_language})</span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {status === "COMMITTED" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              COMMITTED
+                            </span>
+                          )}
+                          {status === "REJECTED" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              REJECTED
+                            </span>
+                          )}
+                          {status === "PENDING_REVIEW" && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              PENDING
+                            </span>
+                          )}
+                          <span className="text-slate-500">{formatCaptureTime(c.created_at)}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-slate-200 line-clamp-2 leading-relaxed">
+                        {c.original_transcript || c.transcript_text}
+                      </p>
+
+                      {c.translated_transcript && c.translated_transcript !== c.original_transcript && (
+                        <p className="text-[11px] text-sky-300/80 line-clamp-1 italic">
+                          ↳ {c.translated_transcript}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -393,7 +521,8 @@ export default function CapturePage() {
         <div className="pt-6 border-t border-sky-500/20 animate-slideUp">
           <ProposalReviewCard
             onCommit={handleCommitProposal}
-            isSubmitting={isProcessing}
+            onReject={handleRejectProposal}
+            isSubmitting={isProcessing || isSubmitting}
           />
         </div>
       )}

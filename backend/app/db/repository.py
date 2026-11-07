@@ -9,7 +9,9 @@ from backend.app.schemas.proposal import (
     ProposalApproveResponse,
     ProposalItemPatch,
     ProposalClarificationRequest,
+    ProposalItemUpdate,
 )
+from backend.app.schemas.capture import CaptureResponse, CaptureCreate
 from backend.app.schemas.task import TaskResponse, TaskCreate, TaskUpdate
 from backend.app.schemas.plan import AvailabilityWindow, BusyEvent, PlanResponse
 from backend.app.schemas.memory import (
@@ -134,6 +136,115 @@ class InMemoryStore:
             )
         return user
 
+    # ---------------- CAPTURES ----------------
+    def create_capture(
+        self,
+        user_id: UUID,
+        input_type: str,
+        transcript_text: str,
+        detected_language: str = "Tanglish",
+        original_transcript: Optional[str] = None,
+        translated_transcript: Optional[str] = None,
+        processing_status: str = "COMPLETED",
+        provider_metadata: Optional[dict] = None
+    ) -> CaptureResponse:
+        capture_id = uuid4()
+        now = get_utc_now()
+        cap_dict = {
+            "id": capture_id,
+            "user_id": user_id,
+            "input_type": input_type.upper(),
+            "transcript_text": transcript_text,
+            "original_transcript": original_transcript or transcript_text,
+            "translated_transcript": translated_transcript,
+            "detected_language": detected_language,
+            "processing_status": processing_status,
+            "lifecycle_status": "PENDING_REVIEW",
+            "created_at": now,
+            "proposal_ids": [],
+            "provider_metadata": provider_metadata or {},
+            "error_message": None
+        }
+        self.captures[capture_id] = cap_dict
+        return CaptureResponse(**cap_dict, proposals=[], proposal_count=0)
+
+    def _compute_capture_lifecycle_status(self, proposals: List[ProposalResponse]) -> str:
+        if not proposals:
+            return "COMPLETED"
+        statuses = [p.status for p in proposals]
+        if all(s in ("COMMITTED", "RESOLVED") for s in statuses):
+            return "COMMITTED"
+        if all(s == "REJECTED" for s in statuses):
+            return "REJECTED"
+        if any(s == "APPROVED" for s in statuses):
+            return "APPROVED"
+        if any(s in ("PENDING", "PENDING_REVIEW") for s in statuses):
+            return "PENDING_REVIEW"
+        return statuses[0]
+
+    def get_capture(self, capture_id: UUID, user_id: Optional[UUID] = None) -> Optional[CaptureResponse]:
+        cap = self.captures.get(capture_id)
+        if not cap:
+            return None
+        if user_id and cap["user_id"] != user_id:
+            return None
+        
+        props: List[ProposalResponse] = []
+        for pid in cap.get("proposal_ids", []):
+            prop = self.get_proposal(pid)
+            if prop:
+                props.append(prop)
+        
+        lifecycle = self._compute_capture_lifecycle_status(props)
+        cap["lifecycle_status"] = lifecycle
+        return CaptureResponse(
+            **cap,
+            proposals=props,
+            proposal_count=len(props)
+        )
+
+    def list_captures(self, user_id: Optional[UUID] = None) -> List[CaptureResponse]:
+        target_user = user_id or self.default_user_id
+        caps = [
+            c for c in self.captures.values()
+            if not user_id or c["user_id"] == target_user
+        ]
+        caps.sort(key=lambda c: c["created_at"], reverse=True)
+
+        res: List[CaptureResponse] = []
+        for cap in caps:
+            props: List[ProposalResponse] = []
+            for pid in cap.get("proposal_ids", []):
+                p = self.get_proposal(pid)
+                if p:
+                    props.append(p)
+            lifecycle = self._compute_capture_lifecycle_status(props)
+            cap["lifecycle_status"] = lifecycle
+            res.append(
+                CaptureResponse(
+                    **cap,
+                    proposals=props,
+                    proposal_count=len(props)
+                )
+            )
+        return res
+
+    def delete_capture(self, capture_id: UUID, user_id: Optional[UUID] = None) -> bool:
+        cap = self.captures.get(capture_id)
+        if not cap:
+            return False
+        if user_id and cap["user_id"] != user_id:
+            return False
+        del self.captures[capture_id]
+        return True
+
+    def clear_captures(self, user_id: Optional[UUID] = None) -> int:
+        target_user = user_id or self.default_user_id
+        to_del = [cid for cid, c in self.captures.items() if not user_id or c["user_id"] == target_user]
+        for cid in to_del:
+            del self.captures[cid]
+        return len(to_del)
+
     # ---------------- PROPOSALS & EXTRACTIONS ----------------
     def create_proposal_from_extraction(
         self,
@@ -243,6 +354,9 @@ class InMemoryStore:
             "clarifications": clar_list
         }
         self.proposals[prop_id] = prop_dict
+        if capture_id and capture_id in self.captures:
+            if prop_id not in self.captures[capture_id]["proposal_ids"]:
+                self.captures[capture_id]["proposal_ids"].append(prop_id)
 
         return ProposalResponse(
             **prop_dict,
@@ -263,6 +377,115 @@ class InMemoryStore:
             **prop,
             items=items
         )
+
+    def list_proposals(
+        self,
+        user_id: Optional[UUID] = None,
+        status: Optional[str] = None,
+        capture_id: Optional[UUID] = None
+    ) -> List[ProposalResponse]:
+        target_user = user_id or self.default_user_id
+        matching: List[ProposalResponse] = []
+        for pid, prop in self.proposals.items():
+            if user_id and prop["user_id"] != target_user:
+                continue
+            if capture_id and prop.get("capture_id") != capture_id:
+                continue
+            if status:
+                prop_status = prop.get("status", "").upper()
+                filter_status = status.upper()
+                if filter_status == "PENDING" and prop_status not in ("PENDING", "PENDING_REVIEW"):
+                    continue
+                elif filter_status != "PENDING" and prop_status != filter_status:
+                    continue
+            
+            p_obj = self.get_proposal(pid)
+            if p_obj:
+                matching.append(p_obj)
+
+        matching.sort(key=lambda p: p.created_at, reverse=True)
+        return matching
+
+    def reject_proposal(
+        self,
+        proposal_id: UUID,
+        user_id: Optional[UUID] = None,
+        reason: Optional[str] = "User rejected proposal"
+    ) -> ProposalResponse:
+        prop = self.proposals.get(proposal_id)
+        if not prop:
+            raise KeyError(f"Proposal {proposal_id} not found")
+        if user_id and prop["user_id"] != user_id:
+            raise KeyError(f"Proposal {proposal_id} not found for this user")
+
+        prop["status"] = "REJECTED"
+        for item in self.proposal_items.values():
+            if item["proposal_id"] == proposal_id:
+                item["decision_state"] = "REJECTED"
+                item["rejection_reason"] = reason
+
+        if prop.get("capture_id") and prop["capture_id"] in self.captures:
+            cap_props = [self.get_proposal(pid) for pid in self.captures[prop["capture_id"]].get("proposal_ids", [])]
+            self.captures[prop["capture_id"]]["lifecycle_status"] = self._compute_capture_lifecycle_status([p for p in cap_props if p])
+
+        return self.get_proposal(proposal_id)
+
+    def batch_approve_proposals(
+        self,
+        proposal_ids: List[UUID],
+        user_id: UUID,
+        idempotency_key: Optional[str] = None
+    ) -> dict:
+        created_task_ids: List[UUID] = []
+        affected_count = 0
+        for pid in proposal_ids:
+            prop = self.proposals.get(pid)
+            if not prop or prop.get("status") in ("COMMITTED", "REJECTED"):
+                continue
+            items = [item for item in self.proposal_items.values() if item["proposal_id"] == pid]
+            decisions = [
+                ProposalItemUpdate(
+                    id=item["id"],
+                    proposed_title=item["proposed_title"],
+                    estimated_duration_min=item["estimated_duration_min"],
+                    priority=item["priority"],
+                    is_approved=True
+                )
+                for item in items
+            ]
+            key = f"{idempotency_key}_{pid}" if idempotency_key else str(uuid4())
+            res = self.approve_proposal(
+                proposal_id=pid,
+                user_id=user_id,
+                request=ProposalApproveRequest(idempotency_key=key, items=decisions)
+            )
+            created_task_ids.extend(res.created_task_ids)
+            affected_count += 1
+        return {
+            "affected_count": affected_count,
+            "created_task_ids": created_task_ids,
+            "proposal_ids": proposal_ids,
+            "message": f"Successfully batch approved and committed {affected_count} proposals."
+        }
+
+    def batch_reject_proposals(
+        self,
+        proposal_ids: List[UUID],
+        user_id: UUID,
+        reason: Optional[str] = "Batch rejected by user"
+    ) -> dict:
+        affected_count = 0
+        for pid in proposal_ids:
+            prop = self.proposals.get(pid)
+            if not prop or prop.get("status") in ("COMMITTED", "REJECTED"):
+                continue
+            self.reject_proposal(proposal_id=pid, user_id=user_id, reason=reason)
+            affected_count += 1
+        return {
+            "affected_count": affected_count,
+            "proposal_ids": proposal_ids,
+            "message": f"Successfully batch rejected {affected_count} proposals."
+        }
 
     def update_proposal_item(
         self,
@@ -516,7 +739,10 @@ class InMemoryStore:
                 item["rejection_reason"] = decision.rejection_reason or "User dismissed item"
                 rejected_count += 1
 
-        prop["status"] = "RESOLVED"
+        prop["status"] = "COMMITTED" if approved_task_ids else "REJECTED"
+        if prop.get("capture_id") and prop["capture_id"] in self.captures:
+            cap_props = [self.get_proposal(pid) for pid in self.captures[prop["capture_id"]].get("proposal_ids", [])]
+            self.captures[prop["capture_id"]]["lifecycle_status"] = self._compute_capture_lifecycle_status([p for p in cap_props if p])
 
         resp = {
             "proposal_id": proposal_id,

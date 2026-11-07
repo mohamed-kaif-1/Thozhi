@@ -104,3 +104,19 @@ class ProposalApproveResponse(BaseModel):
     rejected_items_count: int
     created_task_ids: List[UUID]
     message: str = "Decision recorded successfully. Tasks committed to schedule."
+
+class ProposalRejectRequest(BaseModel):
+    reason: Optional[str] = Field(default="User rejected proposal", description="Explanation for rejection")
+
+class ProposalBatchApproveRequest(BaseModel):
+    proposal_ids: List[UUID]
+    idempotency_key: Optional[str] = None
+
+class ProposalBatchRejectRequest(BaseModel):
+    proposal_ids: List[UUID]
+    reason: Optional[str] = "Batch rejected by user"
+
+class ProposalBatchActionResponse(BaseModel):
+    affected_count: int
+    proposal_ids: List[UUID]
+    message: str

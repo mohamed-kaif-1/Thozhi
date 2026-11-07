@@ -91,3 +91,4 @@ All 18 pages compiled cleanly with zero TypeScript errors, including:
 - `/settings` (User Display Name management, live avatar preview, working hours)
 - `/planner` (Date-aware hourly timeline, duration provenance badges, deadline indicators)
 - `/tasks`, `/capture`, `/memory`, `/assistant`, `/goals`, `/projects`, `/calendar`, `/insights`, `/notifications`.
+

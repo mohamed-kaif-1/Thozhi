@@ -9,11 +9,13 @@ import { submitProposalClarifications, translateProposal } from "@/lib/api";
 
 interface ProposalReviewCardProps {
   onCommit: () => void;
+  onReject?: () => void;
   isSubmitting?: boolean;
 }
 
 export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
   onCommit,
+  onReject,
   isSubmitting = false,
 }) => {
   const {
@@ -25,9 +27,25 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
     rejectAll,
     setProposal,
     setProposalLanguage,
+    rejectActiveProposal,
   } = useProposalStore();
 
   const [isTranslating, setIsTranslating] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+
+  const handleReject = async () => {
+    if (!activeProposal) return;
+    setRejecting(true);
+    try {
+      if (onReject) {
+        onReject();
+      } else {
+        await rejectActiveProposal("Rejected by user from proposal review card");
+      }
+    } finally {
+      setRejecting(false);
+    }
+  };
 
   const handleLanguageChange = async (targetLang: string) => {
     if (!activeProposal) return;
@@ -93,6 +111,21 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
             <span className="text-xs text-slate-400 font-semibold tracking-wider uppercase">
               DETECTED: {activeProposal.detected_language}
             </span>
+            {activeProposal.status === "COMMITTED" && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+                COMMITTED
+              </span>
+            )}
+            {activeProposal.status === "REJECTED" && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 border border-rose-500/40 text-rose-300">
+                REJECTED
+              </span>
+            )}
+            {activeProposal.status === "PENDING_REVIEW" && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/40 text-amber-300">
+                PENDING REVIEW
+              </span>
+            )}
             {activeProposal.translation_status === "TRANSLATED" && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
                 Sarvam AI Translated
@@ -341,25 +374,50 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
       </div>
 
       {/* Confirmation Footer */}
-      <div className="flex items-center justify-between border-t border-slate-800 pt-5 mt-6">
-        <p className="text-sm font-medium text-slate-300">
-          Decisions: <strong className="text-sky-400 font-bold">{approvedCount} approved</strong>,{" "}
-          <strong className="text-slate-400">{rejectedCount} dismissed</strong>
-        </p>
+      <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-800 pt-5 mt-6 gap-4">
+        {activeProposal.status === "COMMITTED" ? (
+          <div className="w-full p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+            <span className="font-semibold">✓ Tasks from this proposal have been committed to your schedule.</span>
+            <span className="text-slate-400">View Timeline or Tasks to inspect scheduled slots.</span>
+          </div>
+        ) : activeProposal.status === "REJECTED" ? (
+          <div className="w-full p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+            <span className="font-semibold">✕ This proposal was rejected by the user.</span>
+            <span className="text-slate-400">No tasks were added to your schedule.</span>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-slate-300">
+              Decisions: <strong className="text-sky-400 font-bold">{approvedCount} approved</strong>,{" "}
+              <strong className="text-slate-400">{rejectedCount} dismissed</strong>
+            </p>
 
-        <button
-          onClick={onCommit}
-          disabled={isSubmitting || approvedCount === 0}
-          className={cn(
-            "px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all flex items-center gap-2",
-            approvedCount > 0
-              ? "btn-primary"
-              : "bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed opacity-50",
-            isSubmitting && "opacity-75 cursor-wait"
-          )}
-        >
-          {isSubmitting ? "Committing Tasks..." : `Commit ${approvedCount} Tasks to Schedule`}
-        </button>
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={isSubmitting || rejecting}
+                className="px-4 py-2.5 rounded-xl font-semibold text-xs border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 transition-all disabled:opacity-50"
+              >
+                {rejecting ? "Rejecting..." : "Reject Entire Proposal"}
+              </button>
+
+              <button
+                onClick={onCommit}
+                disabled={isSubmitting || rejecting || approvedCount === 0}
+                className={cn(
+                  "px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all flex items-center gap-2",
+                  approvedCount > 0
+                    ? "btn-primary"
+                    : "bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed opacity-50",
+                  isSubmitting && "opacity-75 cursor-wait"
+                )}
+              >
+                {isSubmitting ? "Committing Tasks..." : `Commit ${approvedCount} Tasks to Schedule`}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

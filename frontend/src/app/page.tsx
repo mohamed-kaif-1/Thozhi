@@ -9,7 +9,6 @@ import { useProposalStore } from "@/store/proposalStore";
 import {
   captureText,
   captureAudio,
-  submitProposalApproval,
   getTodayPlan,
   listTasks,
   completeTask,
@@ -39,7 +38,13 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
 
-  const { activeProposal, setProposal, clearProposal, itemDecisions } = useProposalStore();
+  const {
+    activeProposal,
+    setProposal,
+    commitActiveProposal,
+    rejectActiveProposal,
+    loadInitialQueue,
+  } = useProposalStore();
 
   const loadData = async () => {
     try {
@@ -56,7 +61,8 @@ export default function Home() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    loadInitialQueue();
+  }, [loadInitialQueue]);
 
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,15 +101,31 @@ export default function Home() {
     if (!activeProposal) return;
     try {
       setIsProcessing(true);
-      const decisions = Object.values(itemDecisions);
-      const res = await submitProposalApproval(activeProposal.id, decisions);
-      setNotification(res.message);
-      clearProposal();
+      const res = await commitActiveProposal();
+      if (res) {
+        setNotification(res.message);
+      }
       await loadData();
       setTimeout(() => setNotification(null), 5000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setErrorMessage(`Approval submission failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRejectProposal = async () => {
+    if (!activeProposal) return;
+    try {
+      setIsProcessing(true);
+      await rejectActiveProposal("Rejected by user from dashboard");
+      setNotification("Proposal marked as rejected.");
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`Rejection failed: ${message}`);
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
@@ -206,6 +228,7 @@ export default function Home() {
         <section className="animate-fade-in">
           <ProposalReviewCard
             onCommit={handleCommitProposal}
+            onReject={handleRejectProposal}
             isSubmitting={isProcessing}
           />
         </section>
