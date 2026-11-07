@@ -38,7 +38,9 @@ export default function SettingsPage() {
           }
           if (p.preference_key === "primary_language" && p.preference_value) {
             const val = p.preference_value as Record<string, unknown>;
-            if (typeof val.primaryLanguage === "string") setPrimaryLanguage(val.primaryLanguage);
+            if (val.primaryLanguage === "en" || val.primaryLanguage === "tanglish" || val.primaryLanguage === "ta") {
+              setPrimaryLanguage(val.primaryLanguage);
+            }
           }
           if (p.preference_key === "auto_buffer" && p.preference_value) {
             const val = p.preference_value as Record<string, unknown>;
