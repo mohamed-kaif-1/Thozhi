@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, date, time, timezone
-from uuid import uuid4
+from uuid import uuid4, UUID
 from fastapi.testclient import TestClient
 
 from backend.app.main import app

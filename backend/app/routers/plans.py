@@ -23,7 +23,7 @@ async def generate_plan(request: PlanGenerateRequest):
     tasks = store.list_tasks(user_id=user_id, target_date=request.target_date)
     
     dependencies = [
-        (UUID(d["depends_on_task_id"]), UUID(d["task_id"]))
+        (UUID(str(d["depends_on_task_id"])), UUID(str(d["task_id"])))
         for d in store.task_dependencies
     ]
     windows = store.get_user_windows(user_id)
