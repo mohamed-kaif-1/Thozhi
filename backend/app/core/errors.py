@@ -37,7 +37,7 @@ class SchedulingCycleException(AppException):
         detail = cycle_info if isinstance(cycle_info, str) else "Circular task dependency detected in schedule graph"
         extra = {"cycle": cycle_info} if isinstance(cycle_info, list) else {"details": cycle_info}
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422),
             detail=detail,
             error_code="CIRCULAR_DEPENDENCY",
             extra=extra

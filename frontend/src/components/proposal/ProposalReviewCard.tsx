@@ -3,8 +3,9 @@
 import React from "react";
 import { Priority } from "@/types";
 import { useProposalStore } from "@/store/proposalStore";
-import { Check, X, Clock, AlertCircle, Quote, ShieldAlert } from "lucide-react";
+import { Check, X, Clock, AlertCircle, Quote, ShieldAlert, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { submitProposalClarifications } from "@/lib/api";
 
 interface ProposalReviewCardProps {
   onCommit: () => void;
@@ -22,7 +23,39 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
     toggleApproval,
     approveAll,
     rejectAll,
+    setProposal,
   } = useProposalStore();
+
+  const handleAnswerClarification = async (questionId: string, option: string) => {
+    if (!activeProposal) return;
+    try {
+      const now = new Date();
+      let resolvedIso: string | undefined = undefined;
+      if (option.toLowerCase().includes("5 pm") || option.toLowerCase().includes("evening")) {
+        now.setHours(17, 0, 0, 0);
+        resolvedIso = now.toISOString();
+      } else if (option.toLowerCase().includes("tomorrow") || option.toLowerCase().includes("9 am")) {
+        const tomorrow = new Date(Date.now() + 86400000);
+        tomorrow.setHours(9, 0, 0, 0);
+        resolvedIso = tomorrow.toISOString();
+      }
+      
+      const durationMin = option.includes("min") ? parseInt(option, 10) : undefined;
+      
+      const updated = await submitProposalClarifications(activeProposal.id, [
+        {
+          question_id: questionId,
+          answer: option,
+          selected_option: option,
+          resolved_deadline_iso: resolvedIso,
+          resolved_duration_min: isNaN(Number(durationMin)) ? undefined : durationMin,
+        },
+      ]);
+      setProposal(updated);
+    } catch (e) {
+      console.error("Clarification failed:", e);
+    }
+  };
 
   if (!activeProposal) return null;
 
@@ -70,6 +103,39 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Clarification Q&A Loop (Phase 5.3) */}
+      {activeProposal.clarifications && activeProposal.clarifications.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl bg-cyber-amber-950/30 border border-cyber-amber-500/40 space-y-3">
+          <div className="flex items-center gap-2 text-cyber-amber-300">
+            <HelpCircle className="w-4 h-4 flex-shrink-0 text-cyber-amber-400" />
+            <h3 className="text-xs font-bold uppercase tracking-wider">
+              Clarification Required Before Schedule Finalization
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {activeProposal.clarifications.map((q) => (
+              <div key={q.id} className="p-3 rounded-lg bg-slate-900/90 border border-slate-700/80 space-y-2">
+                <p className="text-xs font-semibold text-slate-200">{q.question_text}</p>
+                {q.suggested_options && q.suggested_options.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {q.suggested_options.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => handleAnswerClarification(q.id, opt)}
+                        className="text-xs px-3 py-1 rounded-md bg-cyber-amber-500/20 hover:bg-cyber-amber-500/30 text-cyber-amber-200 border border-cyber-amber-500/40 font-semibold transition cursor-pointer"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Items List */}
       <div className="space-y-4">

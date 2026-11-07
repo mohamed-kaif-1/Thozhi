@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from uuid import uuid4
 
 from backend.app.modules.planning.engine import PlanningEngine
@@ -9,7 +9,7 @@ from backend.app.schemas.intent import PriorityEnum
 from backend.app.core.errors import SchedulingCycleException
 
 def make_task(title: str, duration: int, priority: PriorityEnum = PriorityEnum.P2_MEDIUM) -> TaskResponse:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return TaskResponse(
         id=uuid4(),
         user_id=uuid4(),

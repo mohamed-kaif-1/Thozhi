@@ -90,6 +90,30 @@ export async function submitProposalApproval(
   return res.json();
 }
 
+export interface ClarificationAnswer {
+  question_id: string;
+  answer: string;
+  selected_option?: string;
+  resolved_deadline_iso?: string;
+  resolved_duration_min?: number;
+}
+
+export async function submitProposalClarifications(
+  proposalId: string,
+  answers: ClarificationAnswer[]
+): Promise<Proposal> {
+  const res = await fetch(`${API_BASE}/proposals/${proposalId}/clarify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answers }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({ detail: "Clarification submission failed" }))) as { detail?: string };
+    throw new Error(err.detail || "Clarification failed");
+  }
+  return res.json();
+}
+
 export async function getTodayPlan(): Promise<Plan> {
   const res = await fetch(`${API_BASE}/plans/today`);
   if (!res.ok) {

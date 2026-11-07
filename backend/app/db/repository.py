@@ -242,7 +242,7 @@ class InMemoryStore:
         if not prop:
             raise KeyError(f"Proposal {proposal_id} not found")
         if prop["expires_at"] < get_utc_now():
-            raise ProposalExpiredException(f"Proposal {proposal_id} has expired.")
+            raise ProposalExpiredException(str(proposal_id))
 
         approved_task_ids: List[UUID] = []
         rejected_count = 0

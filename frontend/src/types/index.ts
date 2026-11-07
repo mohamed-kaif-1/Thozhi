@@ -37,6 +37,14 @@ export interface ProposalItem {
   rejection_reason?: string | null;
 }
 
+export interface ClarificationQuestion {
+  id: string;
+  target_item_temp_id?: string;
+  related_item_temp_id?: string;
+  question_text: string;
+  suggested_options?: string[];
+}
+
 export interface Proposal {
   id: string;
   user_id: string;
@@ -47,6 +55,7 @@ export interface Proposal {
   created_at: string;
   expires_at: string;
   items: ProposalItem[];
+  clarifications?: ClarificationQuestion[];
 }
 
 export interface ProposalItemDecision {

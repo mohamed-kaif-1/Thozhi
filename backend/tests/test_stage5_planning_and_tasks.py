@@ -306,3 +306,240 @@ def test_planning_engine_overcapacity_and_reschedule_flow():
     # Now origin day has exactly 2 tasks and 0 overcapacity!
     assert len(new_plan["slots"]) == 2
     assert len(new_plan["unassigned_task_ids"]) == 0
+
+def test_batch_approval_partial_rejection_zero_silent_tasks():
+    """
+    Phase 5.1: Batch approval where user approves 2 items and rejects 1.
+    Verifies that unapproved items are never silently committed.
+    """
+    extraction = ExtractionResponse(
+        detected_language="ta-IN",
+        intent_summary="Three tasks extracted",
+        extracted_items=[
+            ProposedItemExtraction(
+                temp_id="item-a",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Approved Task A",
+                source_expression="task a seiyanum",
+                estimated_duration_min=30,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P1_CRITICAL,
+                confidence=0.9
+            ),
+            ProposedItemExtraction(
+                temp_id="item-b",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Approved Task B",
+                source_expression="task b seiyanum",
+                estimated_duration_min=45,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P2_MEDIUM,
+                confidence=0.85
+            ),
+            ProposedItemExtraction(
+                temp_id="item-c",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Unwanted / Rejected Idea C",
+                source_expression="maybe ideava pannalam",
+                estimated_duration_min=60,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P3_LOW,
+                confidence=0.65
+            ),
+        ]
+    )
+    prop = store.create_proposal_from_extraction(store.default_user_id, extraction)
+    id_a = prop.items[0].id
+    id_b = prop.items[1].id
+    id_c = prop.items[2].id
+
+    # User explicitly approves A and B, and rejects C with a rationale
+    approve_res = client.post(
+        f"/api/v1/proposals/{prop.id}/approve",
+        json={
+            "idempotency_key": str(uuid4()),
+            "items": [
+                {"id": str(id_a), "is_approved": True},
+                {"id": str(id_b), "is_approved": True},
+                {"id": str(id_c), "is_approved": False, "rejection_reason": "Not a commitment, just a passing idea."}
+            ]
+        }
+    )
+    assert approve_res.status_code == 200
+    data = approve_res.json()
+    assert data["approved_tasks_count"] == 2
+    assert data["rejected_items_count"] == 1
+    assert len(data["created_task_ids"]) == 2
+
+    # Verify active tasks in the store
+    tasks_res = client.get("/api/v1/tasks")
+    assert tasks_res.status_code == 200
+    tasks = tasks_res.json()
+    task_titles = [t["title"] for t in tasks]
+    assert "Approved Task A" in task_titles
+    assert "Approved Task B" in task_titles
+    assert "Unwanted / Rejected Idea C" not in task_titles
+
+def test_expired_proposal_rejection():
+    """
+    Phase 5.1: Expired proposal cannot be approved.
+    """
+    extraction = ExtractionResponse(
+        detected_language="en",
+        intent_summary="Expired proposal",
+        extracted_items=[
+            ProposedItemExtraction(
+                temp_id="item-exp",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Expired Task",
+                source_expression="do this",
+                estimated_duration_min=30,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P2_MEDIUM,
+                confidence=0.8
+            )
+        ]
+    )
+    prop = store.create_proposal_from_extraction(store.default_user_id, extraction)
+    
+    # Manually expire the proposal
+    store.proposals[prop.id]["expires_at"] = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    res = client.post(
+        f"/api/v1/proposals/{prop.id}/approve",
+        json={
+            "idempotency_key": str(uuid4()),
+            "items": [{"id": str(prop.items[0].id), "is_approved": True}]
+        }
+    )
+    assert res.status_code == 410
+    assert res.json()["error_code"] == "PROPOSAL_EXPIRED"
+    assert len(store.tasks) == 0
+
+def test_idempotent_approval_prevents_duplicate_commit():
+    """
+    Phase 5.1: Re-submitting approval with same idempotency key returns previous result without creating duplicate tasks.
+    """
+    extraction = ExtractionResponse(
+        detected_language="ta-IN",
+        intent_summary="Idempotency test",
+        extracted_items=[
+            ProposedItemExtraction(
+                temp_id="item-idemp",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Idempotent Task Commit",
+                source_expression="do task",
+                estimated_duration_min=40,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P1_CRITICAL,
+                confidence=0.9
+            )
+        ]
+    )
+    prop = store.create_proposal_from_extraction(store.default_user_id, extraction)
+    idemp_key = f"test-idemp-{uuid4()}"
+    payload = {
+        "idempotency_key": idemp_key,
+        "items": [{"id": str(prop.items[0].id), "is_approved": True}]
+    }
+
+    # First attempt
+    res1 = client.post(f"/api/v1/proposals/{prop.id}/approve", json=payload)
+    assert res1.status_code == 200
+    assert res1.json()["approved_tasks_count"] == 1
+    assert len(store.tasks) == 1
+
+    # Second identical attempt
+    res2 = client.post(f"/api/v1/proposals/{prop.id}/approve", json=payload)
+    assert res2.status_code == 200
+    assert res2.json()["approved_tasks_count"] == 1
+    # Store should still have exactly 1 task, not 2
+    assert len(store.tasks) == 1
+
+def test_multi_interval_scheduling_with_calendar_events():
+    """
+    Phase 5.2: Calendar busy events (lunch break & meetings) subtract from availability windows.
+    Tasks are placed in contiguous free blocks.
+    """
+    today = date.today()
+    # User works 09:00 to 17:00 (8 hours = 480 mins)
+    store.availability_windows[store.default_user_id] = [
+        AvailabilityWindow(day_of_week=today.weekday(), start_time=time(9, 0), end_time=time(17, 0))
+    ]
+    # Protected lunch 13:00 to 14:00 (60 mins) and sync 15:00 to 15:30 (30 mins)
+    store.busy_events[store.default_user_id] = [
+        BusyEvent(
+            id=uuid4(),
+            user_id=store.default_user_id,
+            title="Protected Lunch Break",
+            start_time=datetime.combine(today, time(13, 0)),
+            end_time=datetime.combine(today, time(14, 0)),
+            is_blocking=True
+        ),
+        BusyEvent(
+            id=uuid4(),
+            user_id=store.default_user_id,
+            title="Stakeholder Sync Meeting",
+            start_time=datetime.combine(today, time(15, 0)),
+            end_time=datetime.combine(today, time(15, 30)),
+            is_blocking=True
+        )
+    ]
+
+    # Task 1: 120 mins (should fit 09:00 - 11:00)
+    client.post("/api/v1/tasks", json={"title": "Morning Focus", "estimated_duration_min": 120, "priority": "P1", "scheduled_date": str(today)})
+    # Task 2: 120 mins (should fit 11:00 - 13:00)
+    client.post("/api/v1/tasks", json={"title": "Pre-Lunch Deep Work", "estimated_duration_min": 120, "priority": "P1", "scheduled_date": str(today)})
+    # Task 3: 60 mins (must NOT overlap 13:00-14:00 lunch! Should schedule 14:00 - 15:00)
+    client.post("/api/v1/tasks", json={"title": "Post-Lunch Code Review", "estimated_duration_min": 60, "priority": "P2", "scheduled_date": str(today)})
+
+    plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
+    assert plan_res.status_code == 200
+    plan = plan_res.json()
+    assert len(plan["slots"]) == 3
+    
+    slot_3 = [s for s in plan["slots"] if s["title"] == "Post-Lunch Code Review"][0]
+    start_dt = datetime.fromisoformat(slot_3["start_time"])
+    end_dt = datetime.fromisoformat(slot_3["end_time"])
+    # Strictly starts at 14:00 or later, after lunch finishes
+    assert start_dt.hour >= 14
+    assert end_dt.hour <= 15
+
+def test_multi_level_dag_dependency_chain():
+    """
+    Phase 5.2: Sequential 4-stage dependency pipeline: Design -> Frontend -> Backend -> QA.
+    """
+    today = date.today()
+    store.availability_windows[store.default_user_id] = [
+        AvailabilityWindow(day_of_week=today.weekday(), start_time=time(9, 0), end_time=time(18, 0))
+    ]
+    
+    r_d = client.post("/api/v1/tasks", json={"title": "Stage 1 Design", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    r_f = client.post("/api/v1/tasks", json={"title": "Stage 2 Frontend", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    r_b = client.post("/api/v1/tasks", json={"title": "Stage 3 Backend", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    r_q = client.post("/api/v1/tasks", json={"title": "Stage 4 QA", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    
+    id_d = r_d.json()["id"]
+    id_f = r_f.json()["id"]
+    id_b = r_b.json()["id"]
+    id_q = r_q.json()["id"]
+
+    # Dependencies: F depends on D, B depends on F, Q depends on B
+    client.post(f"/api/v1/tasks/{id_f}/dependencies/{id_d}")
+    client.post(f"/api/v1/tasks/{id_b}/dependencies/{id_f}")
+    client.post(f"/api/v1/tasks/{id_q}/dependencies/{id_b}")
+
+    plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
+    assert plan_res.status_code == 200
+    slots = plan_res.json()["slots"]
+    assert len(slots) == 4
+    
+    # Verify strict temporal sequence
+    times = [(s["title"], datetime.fromisoformat(s["start_time"]), datetime.fromisoformat(s["end_time"])) for s in slots]
+    assert times[0][0] == "Stage 1 Design"
+    assert times[1][0] == "Stage 2 Frontend"
+    assert times[2][0] == "Stage 3 Backend"
+    assert times[3][0] == "Stage 4 QA"
+    assert times[0][2] <= times[1][1]
+    assert times[1][2] <= times[2][1]
+    assert times[2][2] <= times[3][1]
