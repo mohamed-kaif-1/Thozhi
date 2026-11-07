@@ -18,6 +18,8 @@ def clean_store():
     store.task_dependencies.clear()
     store.idempotency_keys.clear()
     store.memory_preferences.clear()
+    store.availability_windows.clear()
+    store.busy_events.clear()
     store._seed_default_memory()
     yield
 
@@ -194,3 +196,99 @@ def test_stage7_complete_end_to_end_thozhi_pipeline():
     assert export_bundle["tasks_count"] == 2
     assert export_bundle["proposals_count"] == 1
     assert export_bundle["data"]["export_metadata"]["zero_audio_retention_verified"] is True
+
+def test_stage7_audio_capture_to_scheduled_task_journey():
+    """
+    Stage 7: Full Audio Capture -> Proposal Review -> Approval -> Daily Schedule journey.
+    """
+    today = date.today()
+    tomorrow = today + pytest.importorskip("datetime").timedelta(days=1)
+    
+    # 1. User records audio via microphone
+    # 44-byte minimal WAV header
+    wav_header = b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
+    audio_res = client.post(
+        "/api/v1/captures/audio",
+        files={"file": ("voice_note.wav", wav_header, "audio/wav")},
+        data={"user_timezone": "Asia/Kolkata", "mock_text": "Inaiku client architecture review irukku, notes prepare pannanum"}
+    )
+    assert audio_res.status_code == 200
+    proposal = audio_res.json()
+    assert proposal["status"] == "PENDING_REVIEW"
+    assert len(proposal["items"]) >= 1
+
+    item_id = proposal["items"][0]["id"]
+    
+    # 2. Strict invariant: Zero silent task creation before approval
+    tasks_before = client.get("/api/v1/tasks").json()
+    assert len(tasks_before) == 0
+
+    # 3. User reviews and approves the proposal
+    approve_res = client.post(
+        f"/api/v1/proposals/{proposal['id']}/approve",
+        json={
+            "idempotency_key": str(uuid4()),
+            "items": [
+                {
+                    "id": item_id,
+                    "is_approved": True,
+                    "proposed_title": "Architecture Review Notes",
+                    "estimated_duration_min": 45,
+                    "scheduled_date": str(today)
+                }
+            ]
+        }
+    )
+    assert approve_res.status_code == 200
+    created_ids = approve_res.json()["created_task_ids"]
+    assert len(created_ids) == 1
+
+    # 4. Verify task now exists in task list
+    tasks_after = client.get("/api/v1/tasks").json()
+    assert len(tasks_after) == 1
+    assert tasks_after[0]["title"] == "Architecture Review Notes"
+
+    # 5. Verify plan placement
+    plan_res = client.get("/api/v1/plans/today")
+    assert plan_res.status_code == 200
+    today_plan = plan_res.json()
+    slot_titles = [s["title"] for s in today_plan["slots"]]
+    assert "Architecture Review Notes" in slot_titles
+
+def test_stage7_reschedule_and_purge_full_lifecycle():
+    """
+    Stage 7: Overcapacity conflict -> Human reschedule approval -> Sovereign Right to be Forgotten.
+    """
+    today = date.today()
+    # 2 hours availability: 09:00 - 11:00 (120 mins)
+    store.availability_windows[store.default_user_id] = [
+        AvailabilityWindow(day_of_week=today.weekday(), start_time=time(9, 0), end_time=time(11, 0))
+    ]
+
+    # Create 3 tasks of 60 mins each = 180m (60m overload)
+    client.post("/api/v1/tasks", json={"title": "P1 Task Alpha", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    client.post("/api/v1/tasks", json={"title": "P1 Task Beta", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
+    client.post("/api/v1/tasks", json={"title": "P3 Task Gamma", "estimated_duration_min": 60, "priority": "P3", "scheduled_date": str(today)})
+
+    # Generate plan: detects overload and proposes Gamma be shifted
+    plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
+    assert plan_res.status_code == 200
+    plan = plan_res.json()
+    assert len(plan["reschedule_suggestions"]) == 1
+    assert plan["reschedule_suggestions"][0]["title"] == "P3 Task Gamma"
+
+    # User reviews and applies the reschedule suggestion
+    apply_res = client.post(
+        "/api/v1/plans/reschedule/apply",
+        json={"reschedules": plan["reschedule_suggestions"]}
+    )
+    assert apply_res.status_code == 200
+    resolved_plan = apply_res.json()
+    assert len(resolved_plan["unassigned_task_ids"]) == 0
+    assert len(resolved_plan["slots"]) == 2
+
+    # Sovereign Right to be Forgotten
+    purge_res = client.delete("/api/v1/memory/purge")
+    assert purge_res.status_code == 200
+    assert purge_res.json()["status"] == "PURGED_SOVEREIGN"
+    assert len(client.get("/api/v1/tasks").json()) == 0

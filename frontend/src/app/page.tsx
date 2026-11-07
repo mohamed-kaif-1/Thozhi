@@ -23,7 +23,8 @@ import {
   Circle,
   Calendar,
   ArrowRight,
-  Bot
+  Bot,
+  AlertCircle
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -33,6 +34,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
 
   const { activeProposal, setProposal, clearProposal, itemDecisions } = useProposalStore();
@@ -65,7 +67,8 @@ export default function Home() {
       setInputText("");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Capture failed: ${message}`);
+      setErrorMessage(`Capture failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -78,7 +81,8 @@ export default function Home() {
       setProposal(proposal);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Audio capture failed: ${message}`);
+      setErrorMessage(`Audio capture failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -96,7 +100,8 @@ export default function Home() {
       setTimeout(() => setNotification(null), 5000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Approval submission failed: ${message}`);
+      setErrorMessage(`Approval submission failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -173,6 +178,14 @@ export default function Home() {
         <div className="p-4 rounded-xl bg-sky-500/15 border border-sky-500/40 text-sky-200 flex items-center gap-2.5 font-bold shadow-lg shadow-sky-500/10 animate-fade-in">
           <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" />
           <span>{notification}</span>
+        </div>
+      )}
+
+      {/* Error Message Toast */}
+      {errorMessage && (
+        <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-200 flex items-center gap-2.5 font-bold shadow-lg shadow-rose-500/10 animate-fade-in">
+          <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 

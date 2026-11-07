@@ -16,6 +16,7 @@ import {
   Info,
   CheckCircle2,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -40,6 +41,7 @@ export default function CapturePage() {
     },
   ]);
   const [notification, setNotification] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { activeProposal, setProposal, clearProposal, itemDecisions } = useProposalStore();
 
@@ -64,7 +66,8 @@ export default function CapturePage() {
       setInputText("");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Capture failed: ${message}`);
+      setErrorMessage(`Capture failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -86,7 +89,8 @@ export default function CapturePage() {
       ]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Audio capture failed: ${message}`);
+      setErrorMessage(`Audio capture failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -103,7 +107,8 @@ export default function CapturePage() {
       setTimeout(() => setNotification(null), 5000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Approval submission failed: ${message}`);
+      setErrorMessage(`Approval submission failed: ${message}`);
+      setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -146,9 +151,16 @@ export default function CapturePage() {
       </div>
 
       {notification && (
-        <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-3 shadow-lg shadow-emerald-950/40">
+        <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-3 shadow-lg shadow-emerald-950/40 animate-fade-in">
           <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
           <span className="font-medium text-sm">{notification}</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-200 flex items-center gap-2.5 font-bold shadow-lg shadow-rose-500/10 animate-fade-in">
+          <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
