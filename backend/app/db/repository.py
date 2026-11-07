@@ -115,7 +115,32 @@ class InMemoryStore:
         
         item_responses: List[ProposalItemResponse] = []
         
+        active_priors = [
+            p for p in self.memory_preferences.values()
+            if p["user_id"] == user_id and p["is_active"] and p["category"] == MemoryCategoryEnum.DURATION_PRIOR
+        ]
+
         for item in extraction.extracted_items:
+            est_dur = item.estimated_duration_min or 30
+            dur_source = item.duration_source or "DEFAULT_HEURISTIC"
+
+            # Stage 6 Contextual Memory: calibrate duration from learned priors
+            if dur_source == "DEFAULT_HEURISTIC" and active_priors:
+                title_lower = item.proposed_title.lower()
+                for prior in active_priors:
+                    val = prior.get("preference_value", {})
+                    key_lower = prior.get("preference_key", "").lower()
+                    desc_lower = (prior.get("description") or "").lower()
+                    if any(kw in title_lower for kw in ["report", "presentation", "assignment", "meeting", "review"] if kw in key_lower or kw in desc_lower):
+                        if "suggested_min" in val:
+                            est_dur = int(val["suggested_min"])
+                            dur_source = "LEARNED_PRIOR"
+                            break
+                        elif "baseline_multiplier" in val:
+                            est_dur = int(est_dur * float(val["baseline_multiplier"]))
+                            dur_source = "LEARNED_PRIOR"
+                            break
+
             item_id = uuid4()
             item_dict = {
                 "id": item_id,
@@ -127,8 +152,8 @@ class InMemoryStore:
                 "source_expression": item.source_expression,
                 "deadline_expression": item.deadline_expression,
                 "normalized_deadline": datetime.fromisoformat(item.normalized_deadline_iso) if item.normalized_deadline_iso else None,
-                "estimated_duration_min": item.estimated_duration_min or 30,
-                "duration_source": item.duration_source,
+                "estimated_duration_min": est_dur,
+                "duration_source": dur_source,
                 "priority": item.priority,
                 "confidence_score": item.confidence,
                 "uncertainty_flags": item.uncertainty_flags,
@@ -426,13 +451,59 @@ class InMemoryStore:
         if user_id in self.availability_windows:
             return self.availability_windows[user_id]
         from datetime import time
+
+        # Stage 6: Check if user configured working hours preference in personal memory
+        for p in self.memory_preferences.values():
+            if p["user_id"] == user_id and p["is_active"] and p["preference_key"] == "user_working_hours":
+                val = p.get("preference_value", {})
+                start_str = val.get("startTime") or val.get("start")
+                end_str = val.get("endTime") or val.get("end")
+                if start_str and end_str:
+                    try:
+                        s_h, s_m = map(int, str(start_str).split(":"))
+                        e_h, e_m = map(int, str(end_str).split(":"))
+                        return [
+                            AvailabilityWindow(day_of_week=i, start_time=time(s_h, s_m), end_time=time(e_h, e_m))
+                            for i in range(5)
+                        ]
+                    except Exception:
+                        pass
+
         return [
             AvailabilityWindow(day_of_week=i, start_time=time(9, 0), end_time=time(18, 0))
             for i in range(5)
         ]
 
     def get_user_busy_events(self, user_id: UUID, target_date: date) -> List[BusyEvent]:
-        return self.busy_events.get(user_id, [])
+        events = list(self.busy_events.get(user_id, []))
+        from datetime import time
+        # Stage 6: Automatically respect active blocking memory preferences (e.g. protected lunch break)
+        for p in self.memory_preferences.values():
+            if p["user_id"] == user_id and p["is_active"] and p.get("preference_value", {}).get("blocking"):
+                val = p["preference_value"]
+                start_str = val.get("start")
+                end_str = val.get("end")
+                if start_str and end_str:
+                    try:
+                        s_h, s_m = map(int, str(start_str).split(":"))
+                        e_h, e_m = map(int, str(end_str).split(":"))
+                        b_start = datetime.combine(target_date, time(s_h, s_m))
+                        b_end = datetime.combine(target_date, time(e_h, e_m))
+                        title = p.get("description") or p["preference_key"]
+                        if not any(e.title == title for e in events):
+                            events.append(
+                                BusyEvent(
+                                    id=p["id"],
+                                    user_id=user_id,
+                                    title=title,
+                                    start_time=b_start,
+                                    end_time=b_end,
+                                    is_blocking=True
+                                )
+                            )
+                    except Exception:
+                        pass
+        return events
 
     # ---------------- STAGE 6: PERSONAL MEMORY & PRIVACY ----------------
     def list_memory_preferences(

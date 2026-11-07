@@ -17,6 +17,8 @@ def clean_store():
     store.tasks.clear()
     store.task_dependencies.clear()
     store.idempotency_keys.clear()
+    store.availability_windows.clear()
+    store.busy_events.clear()
     yield
 
 def test_task_proposal_editing_before_approval():

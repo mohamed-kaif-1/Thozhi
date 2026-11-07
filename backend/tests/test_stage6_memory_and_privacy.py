@@ -17,6 +17,8 @@ def clean_store():
     store.task_dependencies.clear()
     store.idempotency_keys.clear()
     store.memory_preferences.clear()
+    store.availability_windows.clear()
+    store.busy_events.clear()
     store._seed_default_memory()
     yield
 
@@ -165,3 +167,92 @@ def test_multi_tenant_memory_isolation():
     # Attempting to delete Tenant A's preference as Tenant B raises 404
     with pytest.raises(Exception):
         store.delete_memory_preference(user_id=user_b, identifier=str(pref_a.id))
+
+def test_learned_duration_prior_calibrates_proposal_item():
+    """
+    Phase 6.3: Contextual memory calibrates default heuristic durations using learned priors.
+    """
+    from backend.app.schemas.intent import ExtractionResponse, ProposedItemExtraction, ItemTypeEnum, PriorityEnum
+    
+    # Store default memory has seeded 'technical_report_duration_prior' with suggested_min=75
+    extraction = ExtractionResponse(
+        detected_language="en",
+        intent_summary="Report task",
+        extracted_items=[
+            ProposedItemExtraction(
+                temp_id="item-rep",
+                item_type=ItemTypeEnum.TASK,
+                proposed_title="Q4 Financial Report Audit",
+                source_expression="do financial report",
+                estimated_duration_min=30,
+                duration_source="DEFAULT_HEURISTIC",
+                priority=PriorityEnum.P1_CRITICAL,
+                confidence=0.88
+            )
+        ]
+    )
+    prop = store.create_proposal_from_extraction(store.default_user_id, extraction)
+    item = prop.items[0]
+    
+    # Learned prior was automatically applied!
+    assert item.estimated_duration_min == 75
+    assert item.duration_source == "LEARNED_PRIOR"
+
+def test_personal_working_hours_memory_alters_schedule_windows():
+    """
+    Phase 6.2: Working hours stored in memory automatically configure schedule availability.
+    """
+    # Set customized working hours: 10:00 to 16:00 (6 hours = 360 mins)
+    client.post(
+        "/api/v1/memory/preferences",
+        json={
+            "preference_key": "user_working_hours",
+            "category": "WORKING_HOURS",
+            "preference_value": {"startTime": "10:00", "endTime": "16:00"},
+            "consent_level": "EXPLICIT_CONSENT"
+        }
+    )
+
+    windows = store.get_user_windows(store.default_user_id)
+    assert len(windows) == 5
+    assert windows[0].start_time.hour == 10
+    assert windows[0].end_time.hour == 16
+
+def test_protected_break_memory_creates_blocking_interval():
+    """
+    Phase 6.2: Protected break preference (e.g. lunch 13:00 to 14:00) automatically injects blocking event.
+    """
+    today = date.today()
+    busy_events = store.get_user_busy_events(store.default_user_id, today)
+    lunch = next((e for e in busy_events if "lunch" in e.title.lower()), None)
+    assert lunch is not None
+    assert lunch.is_blocking is True
+    assert lunch.start_time.hour == 13
+    assert lunch.end_time.hour == 14
+
+def test_preference_upsert_preserves_single_record():
+    """
+    Phase 6.2: Re-submitting preference with same key updates value without duplicating records.
+    """
+    client.post(
+        "/api/v1/memory/preferences",
+        json={
+            "preference_key": "auto_buffer",
+            "category": "PLANNING_STYLE",
+            "preference_value": {"pct": 10},
+            "consent_level": "EXPLICIT_CONSENT"
+        }
+    )
+    client.post(
+        "/api/v1/memory/preferences",
+        json={
+            "preference_key": "auto_buffer",
+            "category": "PLANNING_STYLE",
+            "preference_value": {"pct": 20},
+            "consent_level": "EXPLICIT_CONSENT"
+        }
+    )
+    prefs = client.get("/api/v1/memory/preferences").json()
+    buffer_prefs = [p for p in prefs if p["preference_key"] == "auto_buffer"]
+    assert len(buffer_prefs) == 1
+    assert buffer_prefs[0]["preference_value"]["pct"] == 20

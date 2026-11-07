@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  Brain,
   ShieldCheck,
   Trash2,
   Lock,
@@ -16,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
   listMemoryPreferences,
   deleteMemoryPreference,
@@ -315,9 +315,9 @@ export default function MemoryPage() {
       <div className="space-y-4">
         {filteredPreferences.length === 0 ? (
           <div className="surface-card p-12 text-center text-slate-400 space-y-3">
-            <Brain className="w-12 h-12 text-slate-600 mx-auto" />
-            <p className="text-base font-bold text-slate-300">No memory entries found</p>
-            <p className="text-xs text-slate-500">
+            <BrandLogo variant="icon" className="w-14 h-14 mx-auto opacity-70 mb-1" alt="THOZHI Mascot" />
+            <p className="text-base font-bold text-slate-200">No memory entries found</p>
+            <p className="text-xs text-slate-400">
               As you use THOZHI, observed duration multipliers and working preferences will appear here for your review.
             </p>
           </div>
