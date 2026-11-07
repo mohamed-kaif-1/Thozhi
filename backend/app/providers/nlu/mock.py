@@ -553,20 +553,14 @@ class MockNLUProvider(BaseNLUProvider):
                 )
             )
 
-        # Generic fallback extraction
+        # General production extraction via SemanticIntentParser
         else:
-            items.append(
-                ProposedItemExtraction(
-                    temp_id="item_1",
-                    item_type=ItemTypeEnum.TASK,
-                    proposed_title=transcript_text[:50].capitalize(),
-                    description=transcript_text,
-                    source_expression=transcript_text,
-                    estimated_duration_min=30,
-                    duration_source="MODEL_ESTIMATE",
-                    priority=PriorityEnum.P2_MEDIUM,
-                    confidence=0.85
-                )
+            from backend.app.providers.nlu.semantic_parser import SemanticIntentParser
+            parser = SemanticIntentParser()
+            return await parser.parse(
+                text=transcript_text,
+                reference_date=ref_date,
+                user_timezone=user_timezone
             )
 
         return ExtractionResponse(

@@ -50,6 +50,8 @@ class ProposalItemResponse(BaseModel):
     proposal_id: UUID
     temp_id: str
     item_type: ItemTypeEnum
+    action: Optional[str] = None
+    object: Optional[str] = None
     proposed_title: str
     description: Optional[str] = None
     original_title: Optional[str] = None
@@ -60,9 +62,13 @@ class ProposalItemResponse(BaseModel):
     deadline_expression: Optional[str] = None
     normalized_deadline: Optional[datetime] = None
     estimated_duration_min: Optional[int] = None
-    duration_source: str
-    priority: PriorityEnum
-    confidence_score: float
+    duration_source: str = "UNSPECIFIED"
+    priority: Optional[PriorityEnum] = None
+    confidence_score: float = 0.90
+    intent_confidence: Optional[float] = None
+    action_confidence: Optional[float] = None
+    object_confidence: Optional[float] = None
+    deadline_confidence: Optional[float] = None
     uncertainty_flags: List[str] = Field(default_factory=list)
     condition_trigger: Optional[str] = None
     decision_state: str = "PENDING"

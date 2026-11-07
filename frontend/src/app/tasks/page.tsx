@@ -218,7 +218,7 @@ export default function TasksPage() {
     return true;
   });
 
-  const getPriorityBadge = (p: Priority) => {
+  const getPriorityBadge = (p?: Priority | null) => {
     switch (p) {
       case Priority.P1:
         return (
@@ -233,10 +233,22 @@ export default function TasksPage() {
           </span>
         );
       case Priority.P3:
-      default:
         return (
           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
             P3 Routine
+          </span>
+        );
+      case Priority.BACKBURNER:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30">
+            Backburner
+          </span>
+        );
+      case Priority.UNSPECIFIED:
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800/60 text-slate-400 border border-slate-700/50">
+            Unspecified
           </span>
         );
     }

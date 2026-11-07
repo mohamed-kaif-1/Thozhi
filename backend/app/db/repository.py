@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID, uuid4
 from datetime import datetime, timezone, date, timedelta
-from backend.app.schemas.intent import ExtractionResponse, ProposedItemExtraction, ClarificationQuestion
+from backend.app.schemas.intent import ExtractionResponse, ProposedItemExtraction, ClarificationQuestion, PriorityEnum
 from backend.app.schemas.proposal import (
     ProposalResponse,
     ProposalItemResponse,
@@ -121,11 +121,11 @@ class InMemoryStore:
         ]
 
         for item in extraction.extracted_items:
-            est_dur = item.estimated_duration_min or 30
-            dur_source = item.duration_source or "DEFAULT_HEURISTIC"
+            est_dur = item.estimated_duration_min
+            dur_source = item.duration_source or ("USER_EXPLICIT" if est_dur is not None else "UNSPECIFIED")
 
-            # Stage 6 Contextual Memory: calibrate duration from learned priors
-            if dur_source == "DEFAULT_HEURISTIC" and active_priors:
+            # Stage 6 Contextual Memory: calibrate duration from learned priors if unspecified or default heuristic
+            if (est_dur is None or dur_source == "DEFAULT_HEURISTIC") and active_priors:
                 title_lower = item.proposed_title.lower()
                 for prior in active_priors:
                     val = prior.get("preference_value", {})
@@ -137,9 +137,16 @@ class InMemoryStore:
                             dur_source = "LEARNED_PRIOR"
                             break
                         elif "baseline_multiplier" in val:
-                            est_dur = int(est_dur * float(val["baseline_multiplier"]))
+                            base = est_dur if est_dur is not None else 30
+                            est_dur = int(base * float(val["baseline_multiplier"]))
                             dur_source = "LEARNED_PRIOR"
                             break
+
+            uncertainty_flags = list(item.uncertainty_flags or [])
+            if est_dur is None and "UNSPECIFIED_DURATION" not in uncertainty_flags:
+                uncertainty_flags.append("UNSPECIFIED_DURATION")
+            if (item.priority is None or item.priority == PriorityEnum.UNSPECIFIED) and "UNSPECIFIED_PRIORITY" not in uncertainty_flags:
+                uncertainty_flags.append("UNSPECIFIED_PRIORITY")
 
             item_id = uuid4()
             item_dict = {
@@ -147,6 +154,8 @@ class InMemoryStore:
                 "proposal_id": prop_id,
                 "temp_id": item.temp_id,
                 "item_type": item.item_type,
+                "action": getattr(item, "action", None),
+                "object": getattr(item, "object", None),
                 "proposed_title": item.proposed_title,
                 "description": item.description,
                 "original_title": item.proposed_title,
@@ -160,7 +169,11 @@ class InMemoryStore:
                 "duration_source": dur_source,
                 "priority": item.priority,
                 "confidence_score": item.confidence,
-                "uncertainty_flags": item.uncertainty_flags,
+                "intent_confidence": getattr(item, "intent_confidence", None),
+                "action_confidence": getattr(item, "action_confidence", None),
+                "object_confidence": getattr(item, "object_confidence", None),
+                "deadline_confidence": getattr(item, "deadline_confidence", None),
+                "uncertainty_flags": uncertainty_flags,
                 "condition_trigger": item.condition_trigger,
                 "decision_state": "PENDING",
                 "rejection_reason": None,

@@ -34,3 +34,4 @@ class BaseTranslationProvider(ABC):
         Translates multiple texts concurrently or in batch.
         """
         pass
+

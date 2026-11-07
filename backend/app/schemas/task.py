@@ -16,8 +16,8 @@ class TaskResponse(BaseModel):
     user_id: UUID
     title: str
     description: Optional[str] = None
-    priority: PriorityEnum
-    estimated_duration_min: int = 30
+    priority: Optional[PriorityEnum] = None
+    estimated_duration_min: Optional[int] = None
     actual_duration_min: Optional[int] = None
     deadline: Optional[datetime] = None
     scheduled_date: Optional[date] = None
@@ -36,8 +36,8 @@ class TaskResponse(BaseModel):
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    priority: PriorityEnum = PriorityEnum.P2_MEDIUM
-    estimated_duration_min: int = 30
+    priority: Optional[PriorityEnum] = None
+    estimated_duration_min: Optional[int] = None
     deadline: Optional[datetime] = None
     scheduled_date: Optional[date] = None
     origin_proposal_item_id: Optional[UUID] = None

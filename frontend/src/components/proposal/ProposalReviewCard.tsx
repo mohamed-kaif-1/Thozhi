@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Priority } from "@/types";
 import { useProposalStore } from "@/store/proposalStore";
-import { Check, X, Clock, AlertCircle, Quote, ShieldAlert, HelpCircle, Globe, Mic } from "lucide-react";
+import { Check, X, Clock, AlertCircle, Quote, ShieldAlert, HelpCircle, Globe, Mic, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitProposalClarifications, translateProposal } from "@/lib/api";
 
@@ -228,6 +228,12 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
                     <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 border border-slate-700 text-slate-200">
                       {item.item_type}
                     </span>
+                    {item.deadline_expression && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-sky-300 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-sky-400" />
+                        Deadline: {item.deadline_expression}
+                      </span>
+                    )}
                     <span className="text-[11px] font-semibold text-sky-400">
                       Confidence: {Math.round(item.confidence_score * 100)}%
                     </span>
@@ -241,6 +247,18 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
                       </span>
                     ))}
                   </div>
+
+                  {/* Conceptual Fields Display */}
+                  {item.action && item.object && (
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[10px]">
+                        Action: <strong className="text-sky-300">{item.action}</strong>
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-[10px]">
+                        Object: <strong className="text-amber-300">{item.object}</strong>
+                      </span>
+                    </div>
+                  )}
 
                   {/* Editable Proposed Title */}
                   <input
@@ -260,19 +278,20 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
                   </div>
 
                   {/* Controls: Duration & Priority */}
-                  <div className="flex items-center gap-4 pt-1">
+                  <div className="flex items-center gap-4 pt-1 flex-wrap">
                     <div className="flex items-center gap-1.5 text-xs text-slate-300">
                       <Clock className="w-3.5 h-3.5 text-sky-400" />
                       <select
-                        value={decision.estimated_duration_min ?? item.estimated_duration_min}
+                        value={decision.estimated_duration_min ?? item.estimated_duration_min ?? ""}
                         disabled={!isApproved}
                         onChange={(e) =>
                           updateDecision(item.id, {
-                            estimated_duration_min: Number(e.target.value),
+                            estimated_duration_min: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
                         className="text-xs bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 font-medium text-white focus:outline-none focus:border-sky-400"
                       >
+                        <option value="">Duration: Unspecified</option>
                         <option value={15}>15 mins</option>
                         <option value={30}>30 mins</option>
                         <option value={45}>45 mins</option>
@@ -283,15 +302,16 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
                     </div>
 
                     <select
-                      value={decision.priority ?? item.priority}
+                      value={decision.priority ?? item.priority ?? ""}
                       disabled={!isApproved}
                       onChange={(e) =>
                         updateDecision(item.id, {
-                          priority: e.target.value as Priority,
+                          priority: e.target.value ? (e.target.value as Priority) : undefined,
                         })
                       }
                       className="text-xs bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 font-medium text-white focus:outline-none focus:border-sky-400"
                     >
+                      <option value="">Priority: Unspecified</option>
                       <option value="P1_CRITICAL">P1 - Critical</option>
                       <option value="P2_MEDIUM">P2 - Medium</option>
                       <option value="P3_LOW">P3 - Low</option>

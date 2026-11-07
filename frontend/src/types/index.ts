@@ -15,6 +15,7 @@ export const Priority = {
   P2: "P2_MEDIUM",
   P3: "P3_LOW",
   BACKBURNER: "BACKBURNER",
+  UNSPECIFIED: "UNSPECIFIED",
 } as const;
 export type Priority = (typeof Priority)[keyof typeof Priority];
 
@@ -25,6 +26,8 @@ export interface ProposalItem {
   proposal_id: string;
   temp_id: string;
   item_type: ItemType;
+  action?: string | null;
+  object?: string | null;
   proposed_title: string;
   description?: string | null;
   original_title?: string | null;
@@ -34,10 +37,14 @@ export interface ProposalItem {
   source_expression: string;
   deadline_expression?: string | null;
   normalized_deadline?: string | null;
-  estimated_duration_min: number;
+  estimated_duration_min?: number | null;
   duration_source: string;
-  priority: Priority;
+  priority?: Priority | null;
   confidence_score: number;
+  intent_confidence?: number | null;
+  action_confidence?: number | null;
+  object_confidence?: number | null;
+  deadline_confidence?: number | null;
   uncertainty_flags: string[];
   decision_state: "PENDING" | "APPROVED" | "REJECTED";
   rejection_reason?: string | null;
@@ -77,8 +84,8 @@ export interface Proposal {
 export interface ProposalItemDecision {
   id: string;
   proposed_title?: string;
-  estimated_duration_min?: number;
-  priority?: Priority;
+  estimated_duration_min?: number | null;
+  priority?: Priority | null;
   normalized_deadline_iso?: string;
   scheduled_date?: string;
   is_approved: boolean;
@@ -95,8 +102,8 @@ export interface Task {
   user_id: string;
   title: string;
   description?: string | null;
-  priority: Priority;
-  estimated_duration_min: number;
+  priority?: Priority | null;
+  estimated_duration_min?: number | null;
   actual_duration_min?: number | null;
   deadline?: string | null;
   scheduled_date?: string | null;

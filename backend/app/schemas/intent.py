@@ -19,6 +19,7 @@ class PriorityEnum(str, Enum):
     P2_MEDIUM = "P2_MEDIUM"
     P3_LOW = "P3_LOW"
     BACKBURNER = "BACKBURNER"
+    UNSPECIFIED = "UNSPECIFIED"
 
     @classmethod
     def _missing_(cls, value):
@@ -36,6 +37,8 @@ class PriorityEnum(str, Enum):
                 "P3_LOW": cls.P3_LOW,
                 "P4": cls.BACKBURNER,
                 "BACKBURNER": cls.BACKBURNER,
+                "UNSPECIFIED": cls.UNSPECIFIED,
+                "NONE": cls.UNSPECIFIED,
             }
             if val in mapping:
                 return mapping[val]
@@ -53,16 +56,22 @@ class ClarificationQuestion(BaseModel):
 class ProposedItemExtraction(BaseModel):
     temp_id: str = Field(description="Unique incremental string id (e.g., 'item_1')")
     item_type: ItemTypeEnum = Field(description="Classification of the sentence intention")
+    action: Optional[str] = Field(default=None, description="Action verb e.g. 'Complete', 'Submit'")
+    object: Optional[str] = Field(default=None, description="Direct object of action e.g. 'my Raven app'")
     proposed_title: str = Field(description="Clear, actionable imperative task title in English")
     description: Optional[str] = Field(default=None, description="Additional context or notes")
     source_expression: str = Field(description="Exact substring from input corresponding to this item")
     deadline_expression: Optional[str] = Field(default=None, description="Raw temporal expression extracted from text")
     normalized_deadline_iso: Optional[str] = Field(default=None, description="ISO-8601 timestamp anchored to the current system date")
     estimated_duration_min: Optional[int] = Field(default=None, description="Estimated duration in minutes, or null if unknown")
-    duration_source: str = Field(default="MODEL_ESTIMATE", description="'USER_EXPLICIT', 'MODEL_ESTIMATE', or 'UNKNOWN'")
-    priority: PriorityEnum = Field(default=PriorityEnum.P2_MEDIUM)
-    confidence: float = Field(default=0.85, ge=0.0, le=1.0)
-    uncertainty_flags: List[str] = Field(default_factory=list, description="Flags like 'UNKNOWN_DEADLINE', 'AMBIGUOUS_TIME'")
+    duration_source: str = Field(default="UNSPECIFIED", description="'USER_EXPLICIT', 'LEARNED_PRIOR', 'MODEL_ESTIMATE', or 'UNSPECIFIED'")
+    priority: Optional[PriorityEnum] = Field(default=None, description="Task priority or null/UNSPECIFIED if not stated by user")
+    confidence: float = Field(default=0.90, ge=0.0, le=1.0)
+    intent_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    action_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    object_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    deadline_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    uncertainty_flags: List[str] = Field(default_factory=list, description="Flags like 'UNKNOWN_DEADLINE', 'AMBIGUOUS_TIME', 'UNSPECIFIED_DURATION', 'UNSPECIFIED_PRIORITY'")
     dependencies: List[str] = Field(default_factory=list, description="List of temp_ids that must complete before this task")
     condition_trigger: Optional[str] = Field(default=None, description="Trigger condition if item_type is CONDITIONAL_INTENTION")
 

@@ -7,22 +7,23 @@ from backend.app.schemas.intent import ExtractionResponse
 from backend.app.core.config import settings
 
 SYSTEM_INSTRUCTION = """
-You are THOZHI's multilingual intent parser.
+You are THOZHI's sovereign multilingual intent parser.
 Your role: Transform unstructured thoughts in Tamil, Tanglish, or English into structured task proposals.
 STRICT RULES:
 1. "The AI proposes. The user decides."
-2. Never hallucinate fake deadlines. If no time is mentioned, leave deadline as null and flag 'UNKNOWN_DEADLINE'.
-3. Classify each item precisely into one of the following item_types:
+2. TASK TITLE STRICT RULE: The proposed_title MUST describe only the actual work: an imperative verb (action) plus its direct object (e.g., "Complete my Raven app", "Submit assignment", "Call client").
+3. SEPARATE TEMPORAL ADVERBIALS: NEVER put deadlines, dates, times, or days into proposed_title. Deadlines belong strictly in `deadline_expression` and `normalized_deadline_iso`.
+4. POPULATE ACTION AND OBJECT: Always extract `action` (e.g., "Complete", "Submit", "Call") and `object` (e.g., "my Raven app", "assignment") as separate fields.
+5. DO NOT INVENT DURATION: If the user did not state an explicit duration (e.g., "for 2 hours"), leave `estimated_duration_min` as null and set `duration_source="UNSPECIFIED"`. Never default to 30 minutes!
+6. DO NOT INVENT PRIORITY: If the user did not express explicit urgency or priority, leave `priority` as null or "UNSPECIFIED". Never default to P2 Medium!
+7. CLASSIFY PRECISELY:
    - TASK: An action the user needs to perform.
-   - COMMITMENT: A fixed promise, scheduled meeting, or sync with other people.
-   - CONDITIONAL_INTENTION: An action contingent upon a condition (e.g., "if it does not rain", "mazhai peyyalana", "if client confirms"). MUST populate `condition_trigger`.
-   - CANCELLED: An explicit cancellation, drop, or removal of an appointment/task (e.g., "cancel pannidu", "vendam", "don't need meeting", "drop the call").
-   - COMPLETED: An action the user explicitly says is already done/finished (e.g., "mudichiten", "done with report").
-   - IDEA / WISH: Non-urgent concepts or speculative wishes.
-4. Express task titles in clear, concise imperative English (e.g. "Attend client call", "Submit report", "Cancel meeting").
-5. Preserve the exact source substring in `source_expression`.
-6. Identify chronological dependencies between items in the monologue (e.g. item_2 depends on item_1).
-7. Estimate realistic duration in minutes (default 30m if unspecified).
+   - COMMITMENT: A fixed promise, scheduled meeting, call, or sync with other people.
+   - CONDITIONAL_INTENTION: An action contingent upon a condition (e.g., "if it does not rain"). MUST populate `condition_trigger`.
+   - CANCELLED: An explicit cancellation or removal of an appointment/task.
+   - COMPLETED: An action the user explicitly says is already done/finished (e.g., "already completed", "mudichiten").
+8. Preserve the exact source substring in `source_expression`.
+9. Provide multi-dimensional confidence scores for intent, action, object, and deadline.
 """
 
 class GeminiNLUProvider(BaseNLUProvider):
@@ -57,15 +58,21 @@ Schema:
     {{
       "temp_id": "item_1",
       "item_type": "TASK" | "COMMITMENT" | "IDEA" | "WISH" | "CONDITIONAL_INTENTION" | "QUESTION" | "REMINDER" | "COMPLETED" | "CANCELLED" | "INFORMATIONAL",
-      "proposed_title": "string",
+      "action": "string (imperative action verb e.g. 'Complete')",
+      "object": "string (target direct object e.g. 'my Raven app')",
+      "proposed_title": "string (action + object only without temporal info)",
       "description": "string or null",
       "source_expression": "string",
       "deadline_expression": "string or null",
       "normalized_deadline_iso": "ISO-8601 string or null",
       "estimated_duration_min": integer or null,
-      "duration_source": "USER_EXPLICIT" | "MODEL_ESTIMATE" | "UNKNOWN",
-      "priority": "P1_CRITICAL" | "P2_MEDIUM" | "P3_LOW" | "BACKBURNER",
+      "duration_source": "USER_EXPLICIT" | "LEARNED_PRIOR" | "MODEL_ESTIMATE" | "UNSPECIFIED",
+      "priority": "P1_CRITICAL" | "P2_MEDIUM" | "P3_LOW" | "BACKBURNER" | "UNSPECIFIED" | null,
       "confidence": float,
+      "intent_confidence": float or null,
+      "action_confidence": float or null,
+      "object_confidence": float or null,
+      "deadline_confidence": float or null,
       "uncertainty_flags": ["string"],
       "dependencies": ["temp_id"],
       "condition_trigger": "string or null"
