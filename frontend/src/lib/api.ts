@@ -16,18 +16,21 @@ export interface MemoryPreference {
   category: string;
   preference_key: string;
   preference_value: Record<string, unknown> | null;
+  description?: string;
   confidence_score?: number;
-  consent_granted: boolean;
+  consent_granted?: boolean;
+  consent_level?: string;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface DurationPrior {
-  keyword: string;
-  median_minutes: number;
-  sample_size: number;
-  recommended_prior: number;
+  task_pattern: string;
+  suggested_duration_min: number;
+  historical_samples: number;
+  confidence: number;
+  rationale: string;
 }
 
 export async function captureText(text: string): Promise<Proposal> {
@@ -178,14 +181,22 @@ export async function createMemoryPreference(pref: Partial<MemoryPreference>): P
   return res.json();
 }
 
-export async function toggleMemoryPreference(prefId: string, isActive: boolean): Promise<MemoryPreference> {
-  const res = await fetch(`${API_BASE}/memory/preferences/${prefId}`, {
-    method: "PATCH",
+export async function toggleMemoryPreference(prefId: string, isActive?: boolean): Promise<MemoryPreference> {
+  const endpoint = `${API_BASE}/memory/preferences/${prefId}/toggle`;
+  const res = await fetch(endpoint, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ is_active: isActive }),
+    body: isActive !== undefined ? JSON.stringify({ is_active: isActive }) : undefined,
   });
   if (!res.ok) {
-    throw new Error("Failed to toggle preference");
+    // fallback to PATCH if toggle endpoint returns 404/405
+    const patchRes = await fetch(`${API_BASE}/memory/preferences/${prefId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: isActive ?? false }),
+    });
+    if (!patchRes.ok) throw new Error("Failed to toggle preference");
+    return patchRes.json();
   }
   return res.json();
 }
@@ -207,14 +218,14 @@ export async function getDurationPriorSuggestions(): Promise<DurationPrior[]> {
   return res.json();
 }
 
-export async function exportPersonalData(): Promise<Record<string, unknown>> {
+export async function exportPersonalData(): Promise<Blob> {
   const res = await fetch(`${API_BASE}/memory/export`, {
     method: "POST",
   });
   if (!res.ok) {
     throw new Error("Failed to export personal data");
   }
-  return res.json();
+  return res.blob();
 }
 
 export async function purgeAllPersonalData(): Promise<{ message: string }> {
