@@ -149,7 +149,7 @@ export async function createTask(taskData: Partial<Task>): Promise<Task> {
   return res.json();
 }
 
-export async function applyReschedule(reschedules: RescheduleSuggestion[]): Promise<{ message: string; applied_count: number }> {
+export async function applyReschedule(reschedules: RescheduleSuggestion[]): Promise<Plan> {
   const res = await fetch(`${API_BASE}/plans/reschedule/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
