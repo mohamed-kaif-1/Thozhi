@@ -50,6 +50,9 @@ async def capture_text(request: TextCaptureRequest):
     NLU extracts actionable items and generates a pending proposal.
     Zero tasks are created until the user explicitly reviews and approves.
     """
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=422, detail="Text payload cannot be empty")
+
     user_id = request.user_id or store.default_user_id
     extraction = await safe_extract_intent(
         text=request.text,

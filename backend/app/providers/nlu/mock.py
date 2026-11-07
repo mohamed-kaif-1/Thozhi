@@ -118,6 +118,141 @@ class MockNLUProvider(BaseNLUProvider):
                 )
             )
 
+        # Scenario 02: Multiple Overlapping Coursework Assignments
+        elif "database normalization" in text_lower or "packet tracing" in text_lower or ("three assignments" in text_lower and "friday" in text_lower):
+            summary = "Three academic coursework deliverables due Friday totaling 10 hours."
+            detected_lang = "English"
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_1",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Complete DB Normalization Assignment",
+                    description="Database Normalization assignment requiring 3 hours",
+                    source_expression="Database Normalization... will take 3 hours",
+                    deadline_expression="Friday 5:00 PM",
+                    estimated_duration_min=180,
+                    priority=PriorityEnum.P2_MEDIUM,
+                    confidence=0.96
+                )
+            )
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_2",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Complete CN Packet Tracing Assignment",
+                    description="Computer Networks packet tracing requiring 2 hours",
+                    source_expression="Computer Networks packet tracing, needs 2 hours",
+                    deadline_expression="Friday 5:00 PM",
+                    estimated_duration_min=120,
+                    priority=PriorityEnum.P2_MEDIUM,
+                    confidence=0.95
+                )
+            )
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_3",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Research & Write SE Essay",
+                    description="Software Engineering essay requiring 5 hours research",
+                    source_expression="SE essay needs at least 5 hours of research",
+                    deadline_expression="Friday 5:00 PM",
+                    estimated_duration_min=300,
+                    priority=PriorityEnum.P2_MEDIUM,
+                    confidence=0.94,
+                    uncertainty_flags=["HEAVY_STUDY_LOAD"]
+                )
+            )
+            clarifications.append(
+                ClarificationQuestion(
+                    id="clar_1",
+                    target_item_temp_id="item_3",
+                    question_text="You have only 2h free today but 10h of coursework due Friday. Should we allocate 2h tonight for CN and 8h across Thursday?",
+                    suggested_options=["Yes, split CN tonight & DB+SE Thursday", "Focus entirely on DB tonight", "Request extension for SE essay"],
+                    field_to_update="normalized_deadline_iso"
+                )
+            )
+
+        # Scenario 05: Side Projects & Freelancer Deliverables (Vector export + Invoice)
+        elif "logo vector" in text_lower or "milestone 2" in text_lower or ("branding client" in text_lower and "svg" in text_lower):
+            summary = "Dual freelancer commitments for client: SVG tweaking and milestone invoicing."
+            detected_lang = "English"
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_1",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Tweak & Finalize Logo SVG Export Files",
+                    description="Tweaking SVG exports for branding client",
+                    source_expression="spend 90 minutes tweaking the SVG exports",
+                    deadline_expression="Tonight 7:30 PM",
+                    estimated_duration_min=90,
+                    priority=PriorityEnum.P1_CRITICAL,
+                    confidence=0.97
+                )
+            )
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_2",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Generate & Send Milestone 2 Invoice with Files",
+                    description="Send milestone 2 invoice with final files to client",
+                    source_expression="invoice them for milestone 2... send the invoice with the files",
+                    deadline_expression="Tonight 8:00 PM",
+                    estimated_duration_min=15,
+                    priority=PriorityEnum.P1_CRITICAL,
+                    confidence=0.96,
+                    dependencies=["item_1"]
+                )
+            )
+
+        # Scenario 09: Conditional Commitments ("If-Then" Intentions with Suresh)
+        elif "suresh" in text_lower and ("purchase order" in text_lower or "budget approve" in text_lower):
+            summary = "Conditional workflow contingent on Suresh's budget approval call."
+            detected_lang = "Tanglish"
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_1",
+                    item_type=ItemTypeEnum.CONDITIONAL_INTENTION,
+                    proposed_title="Raise Purchase Order to Vendor",
+                    description="Contingent on Suresh budget approval call",
+                    source_expression="Suresh enaku call panni budget approve panna, udane vendor ku purchase order raise pannanum",
+                    estimated_duration_min=30,
+                    priority=PriorityEnum.P2_MEDIUM,
+                    confidence=0.92,
+                    condition_trigger="If Suresh approves budget",
+                    uncertainty_flags=["TRIGGER_DEPENDENT"]
+                )
+            )
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_2",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Send Budget Follow-up Message to Suresh",
+                    description="Reminder message at 5 PM if no call received",
+                    source_expression="call varlana evening 5 PM-ku avanuku oru reminder message podanum",
+                    deadline_expression="Today 5:00 PM",
+                    estimated_duration_min=15,
+                    priority=PriorityEnum.P1_CRITICAL,
+                    confidence=0.95
+                )
+            )
+
+        # Adversarial Prompt Injection Defense Test
+        elif "drop table" in text_lower or "system prompt" in text_lower or "ignore previous instructions" in text_lower:
+            summary = "Adversarial input detected and sanitized safely as neutral task note."
+            items.append(
+                ProposedItemExtraction(
+                    temp_id="item_1",
+                    item_type=ItemTypeEnum.TASK,
+                    proposed_title="Review sanitized security note",
+                    description=transcript_text[:100],
+                    source_expression=transcript_text[:50],
+                    estimated_duration_min=15,
+                    priority=PriorityEnum.P3_LOW,
+                    confidence=0.99,
+                    uncertainty_flags=["SANITIZED_ADVERSARIAL_INPUT"]
+                )
+            )
+
         # Scenario 04: Family Medical & Errands Collision (Apollo Hospital)
         elif "apollo" in text_lower or "hospital" in text_lower or "bp medicine" in text_lower:
             summary = "Parent medical appointment and time-sensitive pharmacy errand."
