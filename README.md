@@ -1,6 +1,6 @@
 # THOZHI (தோழி) — Multilingual AI-Powered Personal Planning Assistant
 
-[![Python Tests](https://img.shields.io/badge/pytest-47%20passed-brightgreen.svg)]()
+[![Python Tests](https://img.shields.io/badge/pytest-65%20passed-brightgreen.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black.svg)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal.svg)]()
 [![Primary ASR](https://img.shields.io/badge/Primary%20ASR-Gnani%20AI%20Prisma%20v3-orange.svg)]()
@@ -31,8 +31,8 @@ Unlike conventional productivity tools that demand rigid form-filling, or generi
 | **Stage 4** | **Core AI Understanding System** | **COMPLETE** | Primary ASR (**Gnani AI Prisma v3**) + commercial failover (**Sarvam AI Saaras v3**) dispatcher with Zero Raw Audio Retention. Gemini 2.5 Flash NLU intent extraction with Pydantic schemas. |
 | **Stage 5** | **Intelligent Planning & Task Engine** | **COMPLETE** | Deterministic DAG topological scheduler (Kahn's algorithm) with cycle detection (`SchedulingCycleException`), interval capacity math, duplicate prevention, and smart rescheduling. |
 | **Stage 6** | **Contextual Memory & Personalization** | **COMPLETE** | Sovereign privacy preference store (`/api/v1/memory/preferences`) with explicit consent gates, duration learning prior engine, data portability export, and right-to-be-forgotten purge. |
-| **Stage 7** | **Full System Integration** | **COMPLETE** | Seamless pipeline connecting Capture $\rightarrow$ Clarification $\rightarrow$ Proposals $\rightarrow$ Tasks $\rightarrow$ Planner $\rightarrow$ Memory with real-time UI synchronization. |
-| **Stage 8** | **Testing, AI Evaluation & Quality Assurance** | **COMPLETE** | **47/47 passing backend tests** (`python -m pytest backend/tests -v`), Next.js production build passing with 0 errors across 16 static routes, 18 synthetic Indic scenarios evaluated, 18/18 Master PRD Section 20 criteria passed. |
+| **Stage 7** | **Full System Integration** | **COMPLETE** | Seamless pipeline connecting Capture $\rightarrow$ Clarification $\rightarrow$ Proposals $\rightarrow$ Tasks $\rightarrow$ Planner $\rightarrow$ Memory with real-time UI synchronization and accessible toast error boundaries. |
+| **Stage 8** | **Testing, AI Evaluation & Quality Assurance** | **COMPLETE** | **65/65 passing backend tests** (`python -m pytest backend/tests -v`), Next.js production build passing with 0 errors across 18 static routes, 11 synthetic Indic scenarios evaluated, 18/18 Master PRD Section 20 criteria passed. |
 | **Stage 9** | **Production Deployment & Release** | **COMPLETE** | Production runbook documented in `DEPLOYMENT.md`, multi-stage Docker build verified, standalone containerization ready for cloud deployment. |
 
 ---
