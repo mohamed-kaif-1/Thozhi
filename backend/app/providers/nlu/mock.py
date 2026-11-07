@@ -29,8 +29,12 @@ class MockNLUProvider(BaseNLUProvider):
         summary = "Extracted actionable items and commitments from user input."
         detected_lang = "Tanglish"
         
-        # Test Case 1 / Scenario 03: Client call + report submission
-        if "client call" in text_lower or "report submit" in text_lower or ("deck update" in text_lower and "karthik" in text_lower):
+        # Test Case 1 / Scenario 03: Client call + report submission (English, Tanglish & Tamil script)
+        is_client_call = any(kw in text_lower for kw in [
+            "client call", "report submit", "கிளைண்ட் கால்", "க்ளையண்ட் கால்", "ரிப்போர்ட் சப்மிட்", "அறிக்கை"
+        ]) or ("deck update" in text_lower and "karthik" in text_lower)
+
+        if is_client_call:
             summary = "User has an evening client call followed by report submission."
             call_dt = datetime.combine(ref_date, datetime.min.time()) + timedelta(hours=17)
             report_dt = datetime.combine(ref_date, datetime.min.time()) + timedelta(hours=20)
@@ -568,6 +572,7 @@ class MockNLUProvider(BaseNLUProvider):
         return ExtractionResponse(
             intent_summary=summary,
             detected_language=detected_lang,
+            transcript_text=transcript_text,
             extracted_items=items,
             clarifications=clarifications
         )

@@ -17,23 +17,41 @@ class GnaniPrismaProvider(BaseASRProvider):
         self.api_key = api_key or settings.GNANI_API_KEY
         self.base_url = (base_url or settings.GNANI_API_URL).rstrip("/")
 
-    async def transcribe(self, audio_bytes: bytes, content_type: str = "audio/wav") -> ASRTranscriptionResult:
+    async def transcribe(
+        self,
+        audio_bytes: bytes,
+        content_type: str = "audio/wav",
+        language: Optional[str] = None
+    ) -> ASRTranscriptionResult:
         if not self.api_key:
             raise ASRProviderException(
                 detail="GNANI_API_KEY is not set in .env. Gnani Prisma v3 is the primary speech recognition engine for THOZHI.",
                 provider="gnani"
             )
 
-        # Map browser recording types to audio file extension & format
+        # Normalize language to Gnani Prisma supported codes:
+        # Supported: as-IN, bn-IN, en-IN, gu-IN, hi-IN, indic-auto, kn-IN, ml-IN, mr-IN, pa-IN, ta-IN, te-IN
+        lang_lower = (language or "").lower()
+        if lang_lower in ("en", "en-in", "en-us", "english"):
+            language_code = "en-IN"
+        elif lang_lower in ("ta", "ta-in", "tamil"):
+            language_code = "ta-IN"
+        else:
+            language_code = "indic-auto"
+
+        # Determine file extension and encoding
         file_ext = "wav"
         encoding = "LINEAR16"
-        if "webm" in content_type:
-            file_ext = "webm"
-            encoding = "WEBM"
-        elif "ogg" in content_type:
+        if "ogg" in content_type:
             file_ext = "ogg"
             encoding = "OGG"
-        elif "mp4" in content_type or "m4a" in content_type:
+        elif "flac" in content_type:
+            file_ext = "flac"
+            encoding = "FLAC"
+        elif "mp3" in content_type:
+            file_ext = "mp3"
+            encoding = "MP3"
+        elif "mp4" in content_type or "m4a" in content_type or "aac" in content_type:
             file_ext = "m4a"
             encoding = "AAC"
 
@@ -42,18 +60,19 @@ class GnaniPrismaProvider(BaseASRProvider):
             "token": self.api_key, # Secondary compatibility header
         }
         
+        # Gnani Prisma v3 STT requires 'audio_file' as the multipart field name
         files = {
-            "audio": (f"recording.{file_ext}", audio_bytes, content_type)
+            "audio_file": (f"recording.{file_ext}", audio_bytes, content_type)
         }
         
         data = {
             "model": "prisma-v3.0",
-            "language": "ta-IN",
+            "language_code": language_code,
             "encoding": encoding,
             "sampling_rate": 16000
         }
 
-        logger.info(f"Submitting audio ({len(audio_bytes)} bytes, {content_type}) to Gnani Prisma v3 STT...")
+        logger.info(f"Submitting audio ({len(audio_bytes)} bytes, {content_type}, lang={language_code}) to Gnani Prisma v3 STT...")
 
         try:
             async with httpx.AsyncClient(timeout=25.0) as client:
@@ -89,7 +108,7 @@ class GnaniPrismaProvider(BaseASRProvider):
                     transcript = payload
                 
                 confidence = float(payload.get("confidence", 0.95)) if isinstance(payload, dict) else 0.95
-                detected_lang = payload.get("language", "ta-IN") if isinstance(payload, dict) else "ta-IN"
+                detected_lang = payload.get("detected_language_code") or payload.get("language_code") or language_code
                 
                 logger.info(f"Gnani Prisma v3 transcription succeeded: '{transcript[:60]}...'")
 

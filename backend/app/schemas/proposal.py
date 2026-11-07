@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
@@ -65,6 +65,7 @@ class ProposalResponse(BaseModel):
     id: UUID
     user_id: UUID
     capture_id: Optional[UUID] = None
+    transcript_text: Optional[str] = None
     intent_summary: str
     detected_language: str
     status: str

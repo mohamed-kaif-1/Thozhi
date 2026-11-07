@@ -100,5 +100,7 @@ Schema:
             result = resp.json()
             text_candidate = result["candidates"][0]["content"]["parts"][0]["text"]
             parsed_data = json.loads(text_candidate)
-            return ExtractionResponse.model_validate(parsed_data)
+            extraction_res = ExtractionResponse.model_validate(parsed_data)
+            extraction_res.transcript_text = transcript_text
+            return extraction_res
 

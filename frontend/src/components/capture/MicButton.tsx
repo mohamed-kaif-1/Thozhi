@@ -54,8 +54,13 @@ export const MicButton: React.FC<MicButtonProps> = ({
       mediaRecorder.onstop = () => {
         const recordedType = mediaRecorder.mimeType || "audio/webm";
         const audioBlob = new Blob(audioChunksRef.current, { type: recordedType });
-        onAudioRecorded(audioBlob);
+        if (audioBlob.size > 500) {
+          onAudioRecorded(audioBlob);
+        } else {
+          console.warn("Audio recording was too short or empty; discarded.");
+        }
         stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
       };
 
       mediaRecorder.start(250);

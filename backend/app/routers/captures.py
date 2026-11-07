@@ -58,6 +58,7 @@ async def capture_text(request: TextCaptureRequest):
         text=request.text,
         user_timezone=request.user_timezone
     )
+    extraction.transcript_text = request.text
     
     proposal = store.create_proposal_from_extraction(
         user_id=user_id,
@@ -69,6 +70,7 @@ async def capture_text(request: TextCaptureRequest):
 async def capture_audio(
     file: UploadFile = File(...),
     user_timezone: str = Form("Asia/Kolkata"),
+    language: Optional[str] = Form(None),
     mock_text: Optional[str] = Form(None)
 ):
     """
@@ -83,13 +85,21 @@ async def capture_audio(
     transcription = await asr_dispatcher.transcribe(
         audio_bytes=audio_bytes,
         content_type=file.content_type or "audio/wav",
+        language=language,
         mock_fallback_text=mock_text
     )
+
+    if not transcription.transcript_text or not transcription.transcript_text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Speech recognition did not detect any spoken words. Please speak clearly into the microphone."
+        )
     
     extraction = await safe_extract_intent(
         text=transcription.transcript_text,
         user_timezone=user_timezone
     )
+    extraction.transcript_text = transcription.transcript_text
     
     proposal = store.create_proposal_from_extraction(
         user_id=store.default_user_id,

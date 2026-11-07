@@ -75,9 +75,10 @@ export default function Home() {
   };
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
+    if (isProcessing) return;
     try {
       setIsProcessing(true);
-      const proposal = await captureAudio(audioBlob);
+      const proposal = await captureAudio(audioBlob, "indic-auto");
       setProposal(proposal);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

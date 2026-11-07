@@ -67,5 +67,6 @@ class ProposedItemExtraction(BaseModel):
 class ExtractionResponse(BaseModel):
     intent_summary: str = Field(description="One-sentence English summary of the user's mental monologue")
     detected_language: str = Field(default="Tanglish", description="e.g. 'Tanglish', 'English', 'Tamil'")
+    transcript_text: Optional[str] = Field(default=None, description="The raw transcribed speech text or input text")
     extracted_items: List[ProposedItemExtraction] = Field(default_factory=list)
     clarifications: List[ClarificationQuestion] = Field(default_factory=list)

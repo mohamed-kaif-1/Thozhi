@@ -46,7 +46,7 @@ export async function captureText(text: string): Promise<Proposal> {
   return res.json();
 }
 
-export async function captureAudio(audioBlob: Blob): Promise<Proposal> {
+export async function captureAudio(audioBlob: Blob, language?: string): Promise<Proposal> {
   const formData = new FormData();
   const ext = audioBlob.type.includes("mp4")
     ? "mp4"
@@ -57,6 +57,9 @@ export async function captureAudio(audioBlob: Blob): Promise<Proposal> {
     : "wav";
   formData.append("file", audioBlob, `recording.${ext}`);
   formData.append("user_timezone", "Asia/Kolkata");
+  if (language) {
+    formData.append("language", language);
+  }
 
   const res = await fetch(`${API_BASE}/captures/audio`, {
     method: "POST",

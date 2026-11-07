@@ -169,6 +169,7 @@ class InMemoryStore:
             "id": prop_id,
             "user_id": user_id,
             "capture_id": capture_id,
+            "transcript_text": extraction.transcript_text,
             "intent_summary": extraction.intent_summary,
             "detected_language": extraction.detected_language,
             "status": "PENDING_REVIEW",

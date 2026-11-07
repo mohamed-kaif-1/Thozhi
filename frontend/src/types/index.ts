@@ -49,6 +49,7 @@ export interface Proposal {
   id: string;
   user_id: string;
   capture_id?: string | null;
+  transcript_text?: string | null;
   intent_summary: string;
   detected_language: string;
   status: "PENDING_REVIEW" | "RESOLVED" | "EXPIRED";

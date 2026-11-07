@@ -47,17 +47,17 @@ export default function CapturePage() {
 
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isProcessing) return;
 
     try {
       setIsProcessing(true);
-      const textToCapture = inputText;
+      const textToCapture = inputText.trim();
       const proposal = await captureText(textToCapture);
       setProposal(proposal);
       setRecentCaptures((prev) => [
         {
-          id: Date.now().toString(),
-          text: textToCapture,
+          id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          text: proposal.transcript_text || textToCapture,
           time: "Just now",
           type: "text",
         },
@@ -74,14 +74,16 @@ export default function CapturePage() {
   };
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
+    if (isProcessing) return;
     try {
       setIsProcessing(true);
-      const proposal = await captureAudio(audioBlob);
+      const proposal = await captureAudio(audioBlob, selectedLanguage);
       setProposal(proposal);
+      const displayedText = proposal.transcript_text || proposal.intent_summary || "Audio capture session";
       setRecentCaptures((prev) => [
         {
-          id: Date.now().toString(),
-          text: proposal.intent_summary || "Audio capture session",
+          id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          text: displayedText,
           time: "Just now",
           type: "voice",
         },
