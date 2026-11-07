@@ -23,3 +23,4 @@ This quality audit was conducted to address critical production issues in **THOZ
   - Real spoken Tanglish (`"இன்னைக்கு ஈவினிங் க்ளையண்ட் கால் இருக்கு, அதை முடிச்சுட்டு ரிப்போர்ட் சப்மிட் பண்ணனும்."`): **100% semantic accuracy, 0.237s latency**.
   - All 65 backend tests passed (`pytest`).
   - Next.js production build: 18 routes compiled with 0 ESLint warnings.
+

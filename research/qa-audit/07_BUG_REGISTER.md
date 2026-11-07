@@ -10,3 +10,4 @@
 | **BUG-06** | **P2** | `frontend/src/app/capture/page.tsx` | Repeated capture entries on recording completion | Missing debounce/isProcessing check; mock text repeated twice | Added `if (isProcessing) return;` and unique IDs | Duplicate clicks rejected |
 | **BUG-07** | **P2** | `frontend/src/components/capture/MicButton.tsx` | Accidental quick-taps submitted empty blobs resulting in 400 Bad Request | Micro-recordings under 0.3s generated <100 byte blobs | Added `if (audioBlob.size > 500)` guard | Empty/too-short audio safely discarded |
 | **BUG-08** | **P2** | `backend/app/providers/nlu/mock.py` | Tamil script speech inputs fell back to generic extraction | Missing Tamil script keyword patterns in rule-based fallback | Added Tamil script keyword patterns (`க்ளையண்ட்`, `ரிப்போர்ட்`, `மீட்டிங்`) | Tamil script accurately categorized |
+

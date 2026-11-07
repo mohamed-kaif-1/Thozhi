@@ -96,3 +96,4 @@ Recent Capture Stream Card Displays:
 - **Gnani Transcript:** `"இன்னைக்கு ஈவினிங் க்ளையண்ட் கால் இருக்கு, அதை முடிச்சுட்டு ரிப்போர்ட் சப்மிட் பண்ணனும்."`
 - **Latency:** `0.237s`
 - **Accuracy:** `100% semantic and phonetic precision`
+

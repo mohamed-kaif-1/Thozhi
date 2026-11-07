@@ -23,3 +23,4 @@ This inventory catalogs every feature specified in the product blueprint and its
 | **Privacy System** | Sovereign Right to be Forgotten | `src/app/memory/page.tsx` | `DELETE /api/v1/memory/purge` | **PASS** | Purges all tenant tasks, proposals, and preferences. |
 | **Privacy System** | Data Portability Export | `src/app/memory/page.tsx` | `GET /api/v1/memory/export` | **PASS** | Full JSON download of tenant data. |
 | **UI/UX Design** | Neo-Brutalism Obsidian + Blue Grid | Global CSS + Tailwind config | Next.js 14 App Router | **PASS** | Radiant amber accents, 4.5:1 contrast, responsive drawer. |
+

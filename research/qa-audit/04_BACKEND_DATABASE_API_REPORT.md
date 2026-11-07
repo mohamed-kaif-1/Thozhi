@@ -26,3 +26,4 @@ The backend exposes RESTful endpoints using **FastAPI** with structured **RFC 78
 ## 3. Database Schema & RLS
 - **Migrations:** 14 relational tables defined in `supabase/migrations/001_initial_schema.sql`.
 - **Row-Level Security:** Applied in `002_rls_policies.sql` ensuring tenant isolation at database engine level.
+

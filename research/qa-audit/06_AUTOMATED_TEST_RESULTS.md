@@ -47,3 +47,4 @@ backend/tests/test_synthetic_scenarios.py ...                            [100%]
 - **Scheduler Algorithm Latency (50-Task DAG):** `1.14 ms` (Target: < 50ms)
 - **Gnani Prisma v3 STT Latency:** `104 ms – 237 ms` (Target: < 500ms)
 - **Zero Raw Audio Retention Invariant:** `0 bytes on disk or in database`
+

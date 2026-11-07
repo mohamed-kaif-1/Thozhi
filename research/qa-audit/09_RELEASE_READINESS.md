@@ -27,3 +27,4 @@
 
 ## 3. Known Blockers / Operational Notes
 - **External Gemini Free Tier Quota:** The Google AI Studio free tier for `gemini-2.5-flash` enforces a strict 20 requests/day limit. For uninterrupted high-volume live demonstrations, provision a billing-enabled Google AI Studio API key or rely on the robust rule-based fallback parser which now covers all benchmark scenarios and Tamil keywords.
+

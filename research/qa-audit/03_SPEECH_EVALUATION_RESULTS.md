@@ -20,3 +20,4 @@
 - **Tanglish Code-Switching Semantic Preservation:** `100%`
 - **Average Recognition Latency:** `135 milliseconds` (Sub-300ms SLA target met)
 - **Zero Raw Audio Retention Invariant:** `100% Verified` (In-memory buffers freed after transcription)
+
