@@ -7,6 +7,7 @@ interface ProposalState {
   isSubmitting: boolean;
   
   setProposal: (proposal: Proposal) => void;
+  setProposalLanguage: (proposal: Proposal) => void;
   updateDecision: (itemId: string, patch: Partial<ProposalItemDecision>) => void;
   toggleApproval: (itemId: string) => void;
   approveAll: () => void;
@@ -33,6 +34,31 @@ export const useProposalStore = create<ProposalState>((set) => ({
       };
     });
     set({ activeProposal: proposal, itemDecisions: initialDecisions });
+  },
+
+  setProposalLanguage: (proposal) => {
+    set((state) => {
+      const updatedDecisions = { ...state.itemDecisions };
+      proposal.items.forEach((item) => {
+        const existing = updatedDecisions[item.id];
+        if (existing) {
+          updatedDecisions[item.id] = {
+            ...existing,
+            proposed_title: item.proposed_title,
+          };
+        } else {
+          updatedDecisions[item.id] = {
+            id: item.id,
+            proposed_title: item.proposed_title,
+            estimated_duration_min: item.estimated_duration_min,
+            priority: item.priority,
+            normalized_deadline_iso: item.normalized_deadline || undefined,
+            is_approved: true,
+          };
+        }
+      });
+      return { activeProposal: proposal, itemDecisions: updatedDecisions };
+    });
   },
 
   updateDecision: (itemId, patch) =>

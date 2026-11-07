@@ -117,6 +117,20 @@ export async function submitProposalClarifications(
   return res.json();
 }
 
+export async function translateProposal(
+  proposalId: string,
+  targetLanguage: "en" | "ta" | "original" | string
+): Promise<Proposal> {
+  const res = await fetch(`${API_BASE}/proposals/${proposalId}/translate?target_language=${targetLanguage}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({ detail: "Translation request failed" }))) as { detail?: string };
+    throw new Error(err.detail || "Translation failed");
+  }
+  return res.json();
+}
+
 export async function getTodayPlan(): Promise<Plan> {
   const res = await fetch(`${API_BASE}/plans/today`);
   if (!res.ok) {

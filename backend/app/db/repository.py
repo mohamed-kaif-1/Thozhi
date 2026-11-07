@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any
 from uuid import UUID, uuid4
 from datetime import datetime, timezone, date, timedelta
-from backend.app.schemas.intent import ExtractionResponse, ProposedItemExtraction
+from backend.app.schemas.intent import ExtractionResponse, ProposedItemExtraction, ClarificationQuestion
 from backend.app.schemas.proposal import (
     ProposalResponse,
     ProposalItemResponse,
@@ -149,6 +149,10 @@ class InMemoryStore:
                 "item_type": item.item_type,
                 "proposed_title": item.proposed_title,
                 "description": item.description,
+                "original_title": item.proposed_title,
+                "original_description": item.description,
+                "translated_title": None,
+                "translated_description": None,
                 "source_expression": item.source_expression,
                 "deadline_expression": item.deadline_expression,
                 "normalized_deadline": datetime.fromisoformat(item.normalized_deadline_iso) if item.normalized_deadline_iso else None,
@@ -165,17 +169,33 @@ class InMemoryStore:
             self.proposal_items[item_id] = item_dict
             item_responses.append(ProposalItemResponse(**item_dict))
 
+        # Preserve original questions and options for clarifications
+        clar_list = []
+        for q in (extraction.clarifications or []):
+            q_dict = q.model_dump() if hasattr(q, "model_dump") else dict(q)
+            if not q_dict.get("original_question_text"):
+                q_dict["original_question_text"] = q_dict.get("question_text")
+            if not q_dict.get("original_suggested_options"):
+                q_dict["original_suggested_options"] = list(q_dict.get("suggested_options", []))
+            clar_list.append(ClarificationQuestion(**q_dict))
+
         prop_dict = {
             "id": prop_id,
             "user_id": user_id,
             "capture_id": capture_id,
             "transcript_text": extraction.transcript_text,
+            "original_transcript": extraction.transcript_text,
+            "translated_transcript": None,
+            "display_language": "original",
+            "translation_status": "ORIGINAL",
             "intent_summary": extraction.intent_summary,
+            "original_intent_summary": extraction.intent_summary,
+            "translated_intent_summary": None,
             "detected_language": extraction.detected_language,
             "status": "PENDING_REVIEW",
             "created_at": now,
             "expires_at": expires_at,
-            "clarifications": extraction.clarifications
+            "clarifications": clar_list
         }
         self.proposals[prop_id] = prop_dict
 
@@ -250,6 +270,137 @@ class InMemoryStore:
                                 if ans.resolved_item_type:
                                     it["item_type"] = ans.resolved_item_type
                                 it["uncertainty_flags"] = [f for f in it.get("uncertainty_flags", []) if "UNCERTAIN" not in f]
+
+        return self.get_proposal(proposal_id)
+
+    async def translate_proposal(
+        self,
+        proposal_id: UUID,
+        target_language: str,
+        translator = None
+    ) -> ProposalResponse:
+        """
+        Translates proposal transcript, intent summary, item titles, descriptions,
+        and clarification questions to target_language ('en', 'ta', or 'original').
+        Invariants:
+        1. original_transcript, original_title, and original_description are NEVER overwritten.
+        2. Normalized deadlines, estimated durations, priorities, and dependency graphs are NEVER altered.
+        3. Switching to 'original' is instant and fully reversible.
+        """
+        prop = self.proposals.get(proposal_id)
+        if not prop:
+            raise ResourceNotFoundException(
+                detail=f"Proposal {proposal_id} not found",
+                resource_type="proposal",
+                resource_id=str(proposal_id)
+            )
+
+        target = target_language.lower().strip()
+        items = [
+            it for it in self.proposal_items.values()
+            if it["proposal_id"] == proposal_id
+        ]
+
+        # Case 1: Revert to Original Language
+        if target in ["original", "auto", "none"]:
+            prop["transcript_text"] = prop.get("original_transcript") or prop.get("transcript_text")
+            prop["intent_summary"] = prop.get("original_intent_summary") or prop.get("intent_summary")
+            prop["display_language"] = "original"
+            prop["translation_status"] = "ORIGINAL"
+            prop["translated_transcript"] = None
+            prop["translated_intent_summary"] = None
+
+            for item in items:
+                item["proposed_title"] = item.get("original_title") or item["proposed_title"]
+                item["description"] = item.get("original_description")
+                item["translated_title"] = None
+                item["translated_description"] = None
+
+            for q in prop.get("clarifications", []):
+                if hasattr(q, "original_question_text") and q.original_question_text:
+                    q.question_text = q.original_question_text
+                elif isinstance(q, dict) and q.get("original_question_text"):
+                    q["question_text"] = q["original_question_text"]
+                if hasattr(q, "original_suggested_options") and q.original_suggested_options:
+                    q.suggested_options = list(q.original_suggested_options)
+                elif isinstance(q, dict) and q.get("original_suggested_options"):
+                    q["suggested_options"] = list(q["original_suggested_options"])
+
+            return self.get_proposal(proposal_id)
+
+        # Case 2: Translate to English ('en') or Tamil ('ta')
+        from backend.app.providers.translation.sarvam import SarvamTranslationProvider
+        active_translator = translator or SarvamTranslationProvider()
+
+        src_transcript = prop.get("original_transcript") or prop.get("transcript_text") or ""
+        src_intent = prop.get("original_intent_summary") or prop.get("intent_summary") or ""
+        src_lang = prop.get("detected_language") or "auto"
+
+        texts_to_translate = [src_transcript, src_intent]
+
+        # Items
+        for item in items:
+            src_item_title = item.get("original_title") or item["proposed_title"]
+            texts_to_translate.append(src_item_title)
+            if item.get("original_description"):
+                texts_to_translate.append(item["original_description"])
+
+        # Clarifications
+        clar_questions = prop.get("clarifications", [])
+        for q in clar_questions:
+            q_text = getattr(q, "original_question_text", None) or (q.get("original_question_text") if isinstance(q, dict) else None) or (getattr(q, "question_text", None) or (q.get("question_text") if isinstance(q, dict) else ""))
+            texts_to_translate.append(q_text)
+            options = getattr(q, "original_suggested_options", None) or (q.get("original_suggested_options") if isinstance(q, dict) else None) or (getattr(q, "suggested_options", []) or (q.get("suggested_options") if isinstance(q, dict) else []))
+            for opt in options:
+                texts_to_translate.append(opt)
+
+        translated_results = await active_translator.translate_batch(
+            texts=texts_to_translate,
+            source_language=src_lang,
+            target_language=target
+        )
+
+        res_idx = 0
+        trans_transcript = translated_results[res_idx].translated_text
+        res_idx += 1
+        trans_intent = translated_results[res_idx].translated_text
+        res_idx += 1
+
+        for item in items:
+            trans_title = translated_results[res_idx].translated_text
+            res_idx += 1
+            item["proposed_title"] = trans_title
+            item["translated_title"] = trans_title
+            if item.get("original_description"):
+                trans_desc = translated_results[res_idx].translated_text
+                res_idx += 1
+                item["description"] = trans_desc
+                item["translated_description"] = trans_desc
+
+        for q in clar_questions:
+            trans_q_text = translated_results[res_idx].translated_text
+            res_idx += 1
+            if hasattr(q, "question_text"):
+                q.question_text = trans_q_text
+            elif isinstance(q, dict):
+                q["question_text"] = trans_q_text
+
+            options = getattr(q, "original_suggested_options", None) or (q.get("original_suggested_options") if isinstance(q, dict) else None) or (getattr(q, "suggested_options", []) or (q.get("suggested_options") if isinstance(q, dict) else []))
+            new_opts = []
+            for _ in options:
+                new_opts.append(translated_results[res_idx].translated_text)
+                res_idx += 1
+            if hasattr(q, "suggested_options"):
+                q.suggested_options = new_opts
+            elif isinstance(q, dict):
+                q["suggested_options"] = new_opts
+
+        prop["transcript_text"] = trans_transcript
+        prop["translated_transcript"] = trans_transcript
+        prop["intent_summary"] = trans_intent
+        prop["translated_intent_summary"] = trans_intent
+        prop["display_language"] = target
+        prop["translation_status"] = "TRANSLATED"
 
         return self.get_proposal(proposal_id)
 

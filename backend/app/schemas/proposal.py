@@ -35,6 +35,12 @@ class ProposalItemUpdate(BaseModel):
 
 ProposalItemDecision = ProposalItemUpdate
 
+class ProposalTranslateRequest(BaseModel):
+    target_language: str = Field(
+        default="en",
+        description="Target display language: 'en', 'ta', or 'original'"
+    )
+
 class ProposalApproveRequest(BaseModel):
     idempotency_key: str = Field(description="Client-generated UUID or hash for replay protection")
     items: List[ProposalItemUpdate] = Field(description="List of decisions for each item")
@@ -46,6 +52,10 @@ class ProposalItemResponse(BaseModel):
     item_type: ItemTypeEnum
     proposed_title: str
     description: Optional[str] = None
+    original_title: Optional[str] = None
+    original_description: Optional[str] = None
+    translated_title: Optional[str] = None
+    translated_description: Optional[str] = None
     source_expression: str
     deadline_expression: Optional[str] = None
     normalized_deadline: Optional[datetime] = None
@@ -66,7 +76,13 @@ class ProposalResponse(BaseModel):
     user_id: UUID
     capture_id: Optional[UUID] = None
     transcript_text: Optional[str] = None
+    original_transcript: Optional[str] = None
+    translated_transcript: Optional[str] = None
+    display_language: str = "original"
+    translation_status: str = "ORIGINAL"
     intent_summary: str
+    original_intent_summary: Optional[str] = None
+    translated_intent_summary: Optional[str] = None
     detected_language: str
     status: str
     created_at: datetime

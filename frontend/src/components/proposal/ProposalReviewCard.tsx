@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Priority } from "@/types";
 import { useProposalStore } from "@/store/proposalStore";
-import { Check, X, Clock, AlertCircle, Quote, ShieldAlert, HelpCircle } from "lucide-react";
+import { Check, X, Clock, AlertCircle, Quote, ShieldAlert, HelpCircle, Globe, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitProposalClarifications } from "@/lib/api";
+import { submitProposalClarifications, translateProposal } from "@/lib/api";
 
 interface ProposalReviewCardProps {
   onCommit: () => void;
@@ -24,7 +24,23 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
     approveAll,
     rejectAll,
     setProposal,
+    setProposalLanguage,
   } = useProposalStore();
+
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleLanguageChange = async (targetLang: string) => {
+    if (!activeProposal) return;
+    setIsTranslating(true);
+    try {
+      const updated = await translateProposal(activeProposal.id, targetLang);
+      setProposalLanguage(updated);
+    } catch (err) {
+      console.error("Language translation failed:", err);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handleAnswerClarification = async (questionId: string, option: string) => {
     if (!activeProposal) return;
@@ -74,13 +90,46 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/20 border border-sky-500/40 text-sky-300">
               Gnani AI Prisma v3
             </span>
-            <span className="text-xs text-slate-400 font-medium">
-              Language: {activeProposal.detected_language}
+            <span className="text-xs text-slate-400 font-semibold tracking-wider uppercase">
+              DETECTED: {activeProposal.detected_language}
             </span>
+            {activeProposal.translation_status === "TRANSLATED" && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+                Sarvam AI Translated
+              </span>
+            )}
           </div>
+
           <h2 className="text-lg font-bold text-white tracking-tight">
             {activeProposal.intent_summary}
           </h2>
+
+          {/* Display Language Selector */}
+          <div className="flex items-center gap-2.5 mt-2.5 mb-1.5 flex-wrap">
+            <label htmlFor="display-language-select" className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              <span>Display language:</span>
+            </label>
+            <div className="relative inline-flex items-center">
+              <select
+                id="display-language-select"
+                value={activeProposal.display_language || "original"}
+                disabled={isTranslating}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="text-xs bg-slate-900 border border-sky-500/50 hover:border-sky-400 text-sky-200 font-semibold rounded-lg px-3 py-1 focus:outline-none focus:ring-1 focus:ring-sky-400 cursor-pointer transition shadow-inner"
+              >
+                <option value="en">English</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="original">Original language</option>
+              </select>
+              {isTranslating && (
+                <span className="ml-2 text-xs text-sky-400 animate-pulse font-semibold">
+                  Translating...
+                </span>
+              )}
+            </div>
+          </div>
+
           <p className="text-xs text-amber-400/90 mt-1 flex items-center gap-1.5 font-medium">
             <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
             Core Invariant: The AI proposes. The user decides. Only approved items enter your schedule.
@@ -103,6 +152,26 @@ export const ProposalReviewCard: React.FC<ProposalReviewCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Spoken Transcript Preview */}
+      {activeProposal.transcript_text && (
+        <div className="mb-5 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5 font-medium flex-wrap gap-2">
+            <span className="flex items-center gap-1.5 text-sky-300 font-semibold">
+              <Mic className="w-3.5 h-3.5 text-sky-400" />
+              Recognized Speech ({activeProposal.display_language === "original" ? "Original" : activeProposal.display_language === "ta" ? "Tamil Display" : "English Display"}):
+            </span>
+            {activeProposal.display_language !== "original" && activeProposal.original_transcript && activeProposal.original_transcript !== activeProposal.transcript_text && (
+              <span className="text-[11px] text-slate-500 italic">
+                Original Spoken: &quot;{activeProposal.original_transcript}&quot;
+              </span>
+            )}
+          </div>
+          <p className="text-slate-200 font-medium italic">
+            &quot;{activeProposal.transcript_text}&quot;
+          </p>
+        </div>
+      )}
 
       {/* Clarification Q&A Loop (Phase 5.3) */}
       {activeProposal.clarifications && activeProposal.clarifications.length > 0 && (

@@ -45,7 +45,9 @@ class ClarificationQuestion(BaseModel):
     id: str = Field(description="Unique question id e.g. 'clar_1'")
     target_item_temp_id: Optional[str] = Field(default=None, description="temp_id of item requiring clarification")
     question_text: str = Field(description="Natural conversational clarification prompt in user's language")
+    original_question_text: Optional[str] = Field(default=None, description="Original untranslated clarification prompt")
     suggested_options: List[str] = Field(default_factory=list, description="Quick tap options")
+    original_suggested_options: Optional[List[str]] = Field(default=None, description="Original untranslated quick tap options")
     field_to_update: Optional[str] = Field(default=None, description="e.g. 'estimated_duration_min', 'priority'")
 
 class ProposedItemExtraction(BaseModel):

@@ -38,6 +38,15 @@ async def safe_extract_intent(text: str, user_timezone: str):
             user_timezone=user_timezone
         )
 
+async def apply_user_display_language_preference(user_id: UUID, proposal: ProposalResponse) -> ProposalResponse:
+    for pref in store.memory_preferences.values():
+        if pref.get("user_id") == user_id and pref.get("preference_key") == "preferred_display_language":
+            val = pref.get("preference_value", {})
+            target_lang = val.get("display_language")
+            if target_lang and target_lang in ["en", "ta"]:
+                return await store.translate_proposal(proposal.id, target_lang)
+    return proposal
+
 class TextCaptureRequest(BaseModel):
     user_id: Optional[UUID] = None
     text: str
@@ -64,6 +73,7 @@ async def capture_text(request: TextCaptureRequest):
         user_id=user_id,
         extraction=extraction
     )
+    proposal = await apply_user_display_language_preference(user_id, proposal)
     return proposal
 
 @router.post("/audio", response_model=ProposalResponse)
@@ -105,5 +115,6 @@ async def capture_audio(
         user_id=store.default_user_id,
         extraction=extraction
     )
+    proposal = await apply_user_display_language_preference(store.default_user_id, proposal)
     return proposal
 

@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from typing import Optional
 from uuid import UUID
 
 from backend.app.db.repository import store
@@ -9,6 +10,7 @@ from backend.app.schemas.proposal import (
     ProposalApproveResponse,
     ProposalItemPatch,
     ProposalClarificationRequest,
+    ProposalTranslateRequest,
 )
 from backend.app.core.errors import ResourceNotFoundException
 
@@ -24,6 +26,20 @@ async def get_proposal(proposal_id: UUID):
             resource_id=str(proposal_id)
         )
     return prop
+
+@router.post("/{proposal_id}/translate", response_model=ProposalResponse)
+async def translate_proposal(
+    proposal_id: UUID,
+    target_language: Optional[str] = Query(None, description="Target language ('en', 'ta', 'original')"),
+    request: Optional[ProposalTranslateRequest] = None
+):
+    """
+    Translates proposal transcript, intent summary, item titles, descriptions,
+    and clarification questions to target_language ('en', 'ta', or 'original').
+    Supports both query parameter and JSON body for frontend convenience.
+    """
+    target = target_language or (request.target_language if request else "en")
+    return await store.translate_proposal(proposal_id=proposal_id, target_language=target)
 
 @router.patch("/{proposal_id}/items/{item_id}", response_model=ProposalItemResponse)
 async def patch_proposal_item(proposal_id: UUID, item_id: UUID, patch: ProposalItemPatch):

@@ -21,6 +21,7 @@ import {
 
 export default function SettingsPage() {
   const [primaryLanguage, setPrimaryLanguage] = useState<"tanglish" | "ta" | "en">("tanglish");
+  const [preferredDisplayLanguage, setPreferredDisplayLanguage] = useState<"original" | "en" | "ta">("original");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [dailyFocusHours, setDailyFocusHours] = useState(8);
@@ -42,6 +43,12 @@ export default function SettingsPage() {
             const val = p.preference_value as Record<string, unknown>;
             if (val.primaryLanguage === "en" || val.primaryLanguage === "tanglish" || val.primaryLanguage === "ta") {
               setPrimaryLanguage(val.primaryLanguage);
+            }
+          }
+          if (p.preference_key === "preferred_display_language" && p.preference_value) {
+            const val = p.preference_value as Record<string, unknown>;
+            if (val.display_language === "en" || val.display_language === "ta" || val.display_language === "original") {
+              setPreferredDisplayLanguage(val.display_language as "original" | "en" | "ta");
             }
           }
           if (p.preference_key === "auto_buffer" && p.preference_value) {
@@ -70,6 +77,12 @@ export default function SettingsPage() {
           category: "LANGUAGE",
           preference_value: { primaryLanguage },
           description: `Primary Indic language preference set to ${primaryLanguage}.`,
+        }),
+        createMemoryPreference({
+          preference_key: "preferred_display_language",
+          category: "LANGUAGE",
+          preference_value: { display_language: preferredDisplayLanguage },
+          description: `Preferred default display language for AI proposals set to ${preferredDisplayLanguage}.`,
         }),
         createMemoryPreference({
           preference_key: "auto_buffer",
@@ -216,19 +229,51 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* ASR Providers Status */}
+            {/* Preferred Default Display Language */}
+            <div className="pt-3 border-t border-slate-800/80">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Preferred Default Display Language
+              </label>
+              <p className="text-[11px] text-slate-400 mb-2.5">
+                Recognize what you say. Read how you prefer. AI proposals will automatically render in this language.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { id: "original", label: "Original Spoken Language", sub: "Preserve raw Tamil, Tanglish, or English" },
+                  { id: "en", label: "English", sub: "Translate Tamil/Tanglish speech to English display" },
+                  { id: "ta", label: "தமிழ் (Tamil)", sub: "Translate English/Tanglish speech to Tamil display" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setPreferredDisplayLanguage(item.id as "original" | "en" | "ta")}
+                    className={cn(
+                      "p-3 rounded-xl border text-xs font-bold transition text-left space-y-1",
+                      preferredDisplayLanguage === item.id
+                        ? "bg-amber-500/20 text-amber-300 border-amber-400 shadow-md shadow-amber-950/20"
+                        : "bg-canvas-subtle text-slate-400 border-slate-800 hover:text-white"
+                    )}
+                  >
+                    <div className="text-xs font-bold text-slate-200">{item.label}</div>
+                    <div className="text-[10px] text-slate-400 font-normal leading-tight">{item.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ASR & Translation Providers Status */}
             <div className="space-y-2 pt-2">
               <span className="text-xs font-semibold text-slate-400 block">
                 Active Speech Telemetry & Fallback Hierarchy
               </span>
 
-              {/* Primary: Gnani AI Prisma v3 */}
+              {/* Primary STT: Gnani AI Prisma v3 */}
               <div className="p-3.5 rounded-xl bg-canvas-subtle border border-sky-500/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">Primary: Gnani AI Prisma v3</span>
+                      <span className="text-xs font-bold text-white">Speech-to-Text: Gnani AI Prisma v3</span>
                       <span className="text-[10px] px-1.5 rounded bg-sky-500/20 text-sky-300 font-mono">
                         model=&quot;prisma-v3.0&quot;
                       </span>
@@ -243,13 +288,34 @@ export default function SettingsPage() {
                 </span>
               </div>
 
-              {/* Fallback: Sarvam Saaras v3 */}
+              {/* Translation: Sarvam AI Indic Translation */}
+              <div className="p-3.5 rounded-xl bg-canvas-subtle border border-amber-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white">Translation Engine: Sarvam AI Indic</span>
+                      <span className="text-[10px] px-1.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+                        mode=&quot;formal&quot;
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Endpoint: https://api.sarvam.ai/translate | Tamil ↔ English ↔ Tanglish
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-400 uppercase">
+                  Active
+                </span>
+              </div>
+
+              {/* Fallback STT: Sarvam Saaras v3 */}
               <div className="p-3.5 rounded-xl bg-canvas-subtle/60 border border-slate-800 flex items-center justify-between opacity-80">
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 rounded-full bg-slate-500" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-300">Failover: Sarvam Saaras v3</span>
+                      <span className="text-xs font-bold text-slate-300">STT Failover: Sarvam Saaras v3</span>
                       <span className="text-[10px] px-1.5 rounded bg-slate-800 text-slate-400 font-mono">
                         ₹0.50/min
                       </span>

@@ -18,6 +18,8 @@ export const Priority = {
 } as const;
 export type Priority = (typeof Priority)[keyof typeof Priority];
 
+export type DisplayLanguage = "original" | "en" | "ta";
+
 export interface ProposalItem {
   id: string;
   proposal_id: string;
@@ -25,6 +27,10 @@ export interface ProposalItem {
   item_type: ItemType;
   proposed_title: string;
   description?: string | null;
+  original_title?: string | null;
+  original_description?: string | null;
+  translated_title?: string | null;
+  translated_description?: string | null;
   source_expression: string;
   deadline_expression?: string | null;
   normalized_deadline?: string | null;
@@ -42,7 +48,10 @@ export interface ClarificationQuestion {
   target_item_temp_id?: string;
   related_item_temp_id?: string;
   question_text: string;
+  original_question_text?: string;
   suggested_options?: string[];
+  original_suggested_options?: string[];
+  field_to_update?: string;
 }
 
 export interface Proposal {
@@ -50,7 +59,13 @@ export interface Proposal {
   user_id: string;
   capture_id?: string | null;
   transcript_text?: string | null;
+  original_transcript?: string | null;
+  translated_transcript?: string | null;
+  display_language: DisplayLanguage | string;
+  translation_status?: "ORIGINAL" | "TRANSLATED" | "FALLBACK" | string;
   intent_summary: string;
+  original_intent_summary?: string | null;
+  translated_intent_summary?: string | null;
   detected_language: string;
   status: "PENDING_REVIEW" | "RESOLVED" | "EXPIRED";
   created_at: string;
