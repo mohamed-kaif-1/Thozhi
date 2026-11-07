@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #080B11;
+  --foreground: #F8FAFC;
+}
+
+body {
+  color: #F8FAFC;
+  background-color: #080B11;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.09) 1px, transparent 1px);
+  background-size: 28px 28px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080B11;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
+@layer components {
+  .surface-card {
+    background-color: #0F172A;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 15px -3px rgba(56, 189, 248, 0.05);
+    border-radius: 0.75rem;
+  }
+
+  .surface-card-hover {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .surface-card-hover:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.7), 0 0 20px 0px rgba(56, 189, 248, 0.12);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+    border: 1px solid #38BDF8;
+    color: #FFFFFF;
+    font-weight: 700;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+    transition: all 0.2s ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.45);
+    transform: translateY(-1px);
+  }
+
+  .btn-amber {
+    background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+    border: 1px solid #F59E0B;
+    color: #FFFFFF;
+    font-weight: 700;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+    transition: all 0.2s ease;
+  }
+  .btn-amber:hover:not(:disabled) {
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.45);
+  }
+}
