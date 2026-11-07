@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # THOZHI (தோழி) — Multilingual AI-Powered Personal Planning Assistant
 
 [![Python Tests](https://img.shields.io/badge/pytest-65%20passed-brightgreen.svg)]()
@@ -96,3 +97,6 @@ docker compose up --build -d
 2. **Strict RLS Policies:** Every database table enforces Row-Level Security ensuring tenant data isolation.
 3. **Idempotency Protection:** All proposal approvals require client-generated idempotency keys to eliminate double-booking or duplicated task creation.
 4. **Deterministic Scheduling:** All calendar conflict detection and topological sort calculations are deterministic. The LLM does not hallucinate time slots.
+=======
+# Thozhi
+>>>>>>> origin/main
