@@ -55,3 +55,4 @@
 2. **Title Purity Invariant:** Verified across all 32 scenarios. Task titles contain solely the imperative action and direct object. No temporal debris (`"Tomorrow evening"`, `"by six o'clock"`, `"at 10 AM"`) contaminates titles.
 3. **Zero Fabrication Invariant:** Verified. When the user does not explicitly state duration or priority, `estimated_duration_min = None` and `priority = None`, and the system surfaces `UNSPECIFIED_DURATION` and `UNSPECIFIED_PRIORITY`.
 4. **Multilingual Sovereign Accuracy:** Verified. Tamil, Tanglish, and English code-switching maintain consistent semantic output and accurate date-time resolution.
+

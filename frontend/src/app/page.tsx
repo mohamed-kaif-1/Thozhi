@@ -27,8 +27,10 @@ import {
   AlertCircle
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { useUserProfile } from "@/lib/useUserProfile";
 
 export default function Home() {
+  const { displayName } = useUserProfile();
   const [inputText, setInputText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -147,7 +149,7 @@ export default function Home() {
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-              Ready to plan your day, Karthi?
+              Ready to plan your day, {displayName.trim().split(" ")[0]}?
             </h1>
             <p className="text-xs text-slate-400 mt-1">
               Speak or type thoughts in Tamil, Tanglish, or English. The AI proposes. You decide.

@@ -1,4 +1,4 @@
-import { Proposal, ProposalApproveRequest, ProposalItemDecision, Plan, Task, RescheduleSuggestion } from "@/types";
+import { Proposal, ProposalApproveRequest, ProposalItemDecision, Plan, Task, RescheduleSuggestion, UserProfile } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -135,6 +135,39 @@ export async function getTodayPlan(): Promise<Plan> {
   const res = await fetch(`${API_BASE}/plans/today`);
   if (!res.ok) {
     throw new Error("Failed to load today's plan");
+  }
+  return res.json();
+}
+
+export async function getPlanForDate(targetDate: string): Promise<Plan> {
+  const res = await fetch(`${API_BASE}/plans/date/${targetDate}`);
+  if (!res.ok) {
+    throw new Error(`Failed to load plan for ${targetDate}`);
+  }
+  return res.json();
+}
+
+export async function getUserProfile(): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/users/me`);
+  if (!res.ok) {
+    throw new Error("Failed to load user profile");
+  }
+  return res.json();
+}
+
+export async function updateUserProfile(payload: {
+  display_name?: string;
+  email?: string;
+  timezone?: string;
+}): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/users/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({ detail: "Failed to update user profile" }))) as { detail?: string };
+    throw new Error(err.detail || "Profile update failed");
   }
   return res.json();
 }

@@ -10,6 +10,7 @@ import {
   Save,
   Cpu,
   Sparkles,
+  User,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
@@ -18,8 +19,11 @@ import {
   createMemoryPreference,
   exportPersonalData,
 } from "@/lib/api";
+import { useUserProfile, getInitials } from "@/lib/useUserProfile";
 
 export default function SettingsPage() {
+  const { profile, saveProfile } = useUserProfile();
+  const [userName, setUserName] = useState("Karthi P.");
   const [primaryLanguage, setPrimaryLanguage] = useState<"tanglish" | "ta" | "en">("tanglish");
   const [preferredDisplayLanguage, setPreferredDisplayLanguage] = useState<"original" | "en" | "ta">("original");
   const [startTime, setStartTime] = useState("09:00");
@@ -27,6 +31,12 @@ export default function SettingsPage() {
   const [dailyFocusHours, setDailyFocusHours] = useState(8);
   const [autoBufferPct, setAutoBufferPct] = useState(15);
   const [notification, setNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile?.display_name) {
+      setUserName(profile.display_name);
+    }
+  }, [profile?.display_name]);
 
   useEffect(() => {
     listMemoryPreferences()
@@ -66,6 +76,7 @@ export default function SettingsPage() {
     e.preventDefault();
     try {
       await Promise.all([
+        saveProfile({ display_name: userName.trim() || "Karthi P." }),
         createMemoryPreference({
           preference_key: "user_working_hours",
           category: "WORKING_HOURS",
@@ -141,6 +152,46 @@ export default function SettingsPage() {
       )}
 
       <form onSubmit={handleSaveSettings} className="space-y-6">
+        {/* SECTION 0: USER PROFILE & IDENTITY */}
+        <div className="surface-card p-6 border-sky-500/20 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+            <User className="w-5 h-5 text-sky-400" />
+            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+              User Profile & Identity
+            </h2>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 border border-amber-400/40 flex items-center justify-center text-slate-950 font-black text-lg shadow-md uppercase">
+                {getInitials(userName)}
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 font-mono">Avatar Preview</p>
+                <p className="text-sm font-bold text-slate-200">{userName || "User"}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 w-full space-y-1">
+              <label htmlFor="user-display-name" className="block text-xs font-semibold text-slate-300">
+                Display Name
+              </label>
+              <input
+                id="user-display-name"
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="Enter your name (e.g. Karthi P.)"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-canvas-subtle border border-slate-700 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/40 transition"
+                required
+              />
+              <p className="text-[11px] text-slate-500">
+                This name is displayed across the workspace, personal agenda greetings, and schedule headers.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* SECTION 1: WORKING HOURS & CAPACITY */}
         <div className="surface-card p-6 border-sky-500/20 space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-800">

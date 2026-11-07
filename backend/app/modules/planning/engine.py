@@ -128,6 +128,43 @@ class PlanningEngine:
                 
         return [slot for slot in free_intervals if (slot[1] - slot[0]).total_seconds() >= 300] # min 5 min
 
+    @staticmethod
+    def infer_task_duration(task: TaskResponse) -> Tuple[int, str, bool]:
+        """
+        Determines the task duration and duration source.
+        Returns: (duration_min, duration_source, is_estimate)
+        - If task.estimated_duration_min is explicit from user: returns (duration, USER_EXPLICIT, False)
+        - If unstated, infers a defensible AI estimate based on complexity and keywords:
+          * project/raven/build/deploy/architecture -> 180 min (3h) AI_ESTIMATE
+          * study/research/assignment/exam/paper -> 120 min (2h) AI_ESTIMATE
+          * presentation/report/documentation/lab record -> 90 min (1.5h) AI_ESTIMATE
+          * email/slack/quick/ping/message/check -> 15 min AI_ESTIMATE
+          * meeting/sync/call/standup -> 30 min AI_ESTIMATE
+        - If unstated and no keyword matches: returns (30, UNSPECIFIED, True).
+        """
+        src = getattr(task, "duration_source", None)
+        if task.estimated_duration_min is not None and src in ("USER_EXPLICIT", "LEARNED_PRIOR"):
+            return task.estimated_duration_min, src, False
+            
+        if task.estimated_duration_min is not None and src == "AI_ESTIMATE":
+            return task.estimated_duration_min, "AI_ESTIMATE", True
+
+        title_lower = task.title.lower()
+        if any(kw in title_lower for kw in ["project", "raven", "build", "deploy", "architecture", "system", "app"]):
+            return 180, "AI_ESTIMATE", True
+        elif any(kw in title_lower for kw in ["study", "exam", "coursework", "assignment", "paper", "research", "audit"]):
+            return 120, "AI_ESTIMATE", True
+        elif any(kw in title_lower for kw in ["presentation", "report", "documentation", "lab record"]):
+            return 90, "AI_ESTIMATE", True
+        elif any(kw in title_lower for kw in ["email", "slack", "quick", "ping", "message", "check"]):
+            return 15, "AI_ESTIMATE", True
+        elif any(kw in title_lower for kw in ["meeting", "sync", "call", "standup"]):
+            return 30, "AI_ESTIMATE", True
+        elif task.estimated_duration_min is not None:
+            return task.estimated_duration_min, src or "USER_EXPLICIT", False
+        else:
+            return 30, "UNSPECIFIED", True
+
     @classmethod
     def schedule_day(
         cls,
@@ -139,7 +176,24 @@ class PlanningEngine:
     ) -> PlanResponse:
         """
         Executes full deterministic scheduling for a given day.
+        Respects hard deadlines, user availability, topological dependencies, and explicit durations.
         """
+        conflicts: List[ConflictWarning] = []
+
+        # Check for overlapping busy commitments (Case 5)
+        for i in range(len(busy_events)):
+            for j in range(i + 1, len(busy_events)):
+                e1, e2 = busy_events[i], busy_events[j]
+                if max(e1.start_time, e2.start_time) < min(e1.end_time, e2.end_time):
+                    conflicts.append(
+                        ConflictWarning(
+                            code="OVERLAPPING_COMMITMENT",
+                            severity="CRITICAL",
+                            message=f"Overlapping commitments detected: '{e1.title}' ({e1.start_time.strftime('%H:%M')}–{e1.end_time.strftime('%H:%M')}) collides with '{e2.title}' ({e2.start_time.strftime('%H:%M')}–{e2.end_time.strftime('%H:%M')}).",
+                            task_ids=[]
+                        )
+                    )
+
         sorted_tasks = cls.topological_sort(tasks, dependencies)
         free_slots = cls.calculate_free_intervals(target_date, windows, busy_events)
         
@@ -147,7 +201,6 @@ class PlanningEngine:
         
         scheduled_slots: List[ScheduleSlot] = []
         unassigned_ids: List[UUID] = []
-        conflicts: List[ConflictWarning] = []
         
         task_end_times: Dict[UUID, datetime] = {}
         
@@ -161,9 +214,55 @@ class PlanningEngine:
                 prereq_map[dep_id].append(prereq_id)
                 
         for task in sorted_tasks:
-            duration = timedelta(minutes=task.estimated_duration_min or 30)
+            duration_min, dur_source, is_est = cls.infer_task_duration(task)
+            duration = timedelta(minutes=duration_min)
+
+            # Check if deadline has already passed on or before target date (Case 7)
+            if task.deadline:
+                dl_cmp = task.deadline.replace(tzinfo=None) if task.deadline.tzinfo else task.deadline
+                now_cmp = datetime.now()
+                is_past = False
+                if target_date < date.today() or dl_cmp < datetime.combine(target_date, time.min):
+                    is_past = True
+                elif target_date == date.today() and dl_cmp < now_cmp:
+                    is_past = True
+
+                if is_past:
+                    conflicts.append(
+                        ConflictWarning(
+                            code="DEADLINE_ALREADY_PASSED",
+                            severity="CRITICAL",
+                            message=f"Deadline for '{task.title}' ({dl_cmp.strftime('%Y-%m-%d %H:%M')}) has already passed. Please revise deadline to schedule.",
+                            task_ids=[task.id]
+                        )
+                    )
+                    unassigned_ids.append(task.id)
+                    continue
+
+            # Feasibility check before deadline on target_date (Case 4)
+            if task.deadline:
+                dl_cmp = task.deadline.replace(tzinfo=None) if task.deadline.tzinfo else task.deadline
+                if dl_cmp.date() == target_date:
+                    avail_before_dl = 0
+                    for s_start, s_end in free_slots:
+                        eff_start = s_start
+                        eff_end = min(s_end, dl_cmp)
+                        if eff_end > eff_start:
+                            avail_before_dl += int((eff_end - eff_start).total_seconds() // 60)
+
+                    if duration_min > avail_before_dl:
+                        conflicts.append(
+                            ConflictWarning(
+                                code="OVERCAPACITY",
+                                severity="CRITICAL",
+                                message=f"Task '{task.title}' is infeasible on {target_date}: Requires {duration_min} minutes, but only {avail_before_dl} minutes are available before deadline ({dl_cmp.strftime('%H:%M')}). Deficit: {duration_min - avail_before_dl} minutes.",
+                                task_ids=[task.id]
+                            )
+                        )
+                        unassigned_ids.append(task.id)
+                        continue
             
-            # Earliest start must be after all prereqs finish
+            # Earliest start must be after all prereqs finish (Case 6)
             earliest_start = datetime.combine(target_date, time.min)
             for prereq_id in prereq_map[task.id]:
                 if prereq_id in task_end_times:
@@ -179,31 +278,53 @@ class PlanningEngine:
                 candidate_end = candidate_start + duration
                 
                 if candidate_end <= slot_end:
-                    # Fits!
+                    # Check deadline constraint
+                    dl_exceeded = False
+                    if task.deadline:
+                        dl_cmp = task.deadline.replace(tzinfo=None) if task.deadline.tzinfo else task.deadline
+                        if dl_cmp.date() == target_date and candidate_end > dl_cmp:
+                            dl_exceeded = True
+                    
+                    # Generate explainable narrative
+                    dur_label = f"{duration_min}m"
+                    if dur_source == "AI_ESTIMATE":
+                        dur_label = f"{duration_min}m AI estimate"
+                    elif dur_source == "UNSPECIFIED":
+                        dur_label = f"{duration_min}m unconfirmed"
+
+                    dl_note = f" before {task.deadline.strftime('%I:%M %p')}" if task.deadline else ""
+                    explanation = f"Scheduled at {candidate_start.strftime('%I:%M %p')} – {candidate_end.strftime('%I:%M %p')} ({dur_label}) in earliest available focus window{dl_note}."
+
+                    sched_status = "SCHEDULED" if not dl_exceeded else "CONFLICT"
+                    if dur_source == "UNSPECIFIED":
+                        sched_status = "TENTATIVE"
+
                     scheduled_slots.append(
                         ScheduleSlot(
                             task_id=task.id,
                             title=task.title,
                             start_time=candidate_start,
                             end_time=candidate_end,
-                            duration_min=int(duration.total_seconds() // 60)
+                            duration_min=duration_min,
+                            duration_source=dur_source,
+                            deadline=task.deadline,
+                            priority=task.priority,
+                            scheduling_status=sched_status,
+                            explanation=explanation
                         )
                     )
                     task_end_times[task.id] = candidate_end
                     placed = True
-                    
-                    # Check deadline constraint
-                    if task.deadline:
-                        deadline_cmp = task.deadline.replace(tzinfo=None) if task.deadline.tzinfo else task.deadline
-                        if candidate_end > deadline_cmp:
-                            conflicts.append(
-                                ConflictWarning(
-                                    code="DEADLINE_EXCEEDED",
-                                    severity="CRITICAL",
-                                    message=f"Task '{task.title}' finishes at {candidate_end.strftime('%H:%M')}, which exceeds deadline {deadline_cmp.strftime('%H:%M')}.",
-                                    task_ids=[task.id]
-                                )
+
+                    if dl_exceeded:
+                        conflicts.append(
+                            ConflictWarning(
+                                code="DEADLINE_EXCEEDED",
+                                severity="CRITICAL",
+                                message=f"Task '{task.title}' finishes at {candidate_end.strftime('%H:%M')}, which exceeds deadline {dl_cmp.strftime('%H:%M')}.",
+                                task_ids=[task.id]
                             )
+                        )
 
                     # Update interval
                     if candidate_start > slot_start and candidate_end < slot_end:
@@ -223,7 +344,7 @@ class PlanningEngine:
                     ConflictWarning(
                         code="OVERCAPACITY",
                         severity="WARNING",
-                        message=f"Insufficient free time slot to schedule '{task.title}' ({task.estimated_duration_min}m) on {target_date}.",
+                        message=f"Insufficient free time slot to schedule '{task.title}' ({duration_min}m) on {target_date}.",
                         task_ids=[task.id]
                     )
                 )

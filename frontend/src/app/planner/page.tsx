@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { CapacityBar } from "@/components/ui/CapacityBar";
-import { getTodayPlan, applyReschedule } from "@/lib/api";
-import { ScheduledBlock, Plan } from "@/types";
+import { getPlanForDate, applyReschedule } from "@/lib/api";
+import { Plan } from "@/types";
 import {
   CalendarDays,
   Clock,
@@ -18,13 +18,31 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MOCK_SCHEDULE_BLOCKS: ScheduledBlock[] = [
+export interface EnrichedScheduledBlock {
+  id: string;
+  task_id: string;
+  task_title: string;
+  start_time: string;
+  end_time: string;
+  duration_min: number;
+  duration_source?: string;
+  deadline?: string | null;
+  priority?: string | null;
+  scheduling_status?: string;
+  explanation?: string | null;
+  is_locked?: boolean;
+}
+
+const MOCK_SCHEDULE_BLOCKS: EnrichedScheduledBlock[] = [
   {
     id: "block-1",
     task_id: "task-1",
     task_title: "Sprint Review & Stakeholder Demo",
     start_time: "2026-11-07T09:30:00",
     end_time: "2026-11-07T10:30:00",
+    duration_min: 60,
+    duration_source: "USER_EXPLICIT",
+    priority: "P1_CRITICAL",
     is_locked: true,
   },
   {
@@ -33,6 +51,10 @@ const MOCK_SCHEDULE_BLOCKS: ScheduledBlock[] = [
     task_title: "Deep Work: Finalize Architecture PRD",
     start_time: "2026-11-07T11:00:00",
     end_time: "2026-11-07T13:00:00",
+    duration_min: 120,
+    duration_source: "AI_ESTIMATE",
+    priority: "P2_MEDIUM",
+    explanation: "Allocated 120m deep work window before afternoon commitments.",
     is_locked: false,
   },
   {
@@ -41,6 +63,9 @@ const MOCK_SCHEDULE_BLOCKS: ScheduledBlock[] = [
     task_title: "Client Technical Clarification Call",
     start_time: "2026-11-07T14:30:00",
     end_time: "2026-11-07T15:15:00",
+    duration_min: 45,
+    duration_source: "USER_EXPLICIT",
+    priority: "P1_CRITICAL",
     is_locked: true,
   },
   {
@@ -49,57 +74,75 @@ const MOCK_SCHEDULE_BLOCKS: ScheduledBlock[] = [
     task_title: "Review Pull Requests & Supabase Policies",
     start_time: "2026-11-07T16:00:00",
     end_time: "2026-11-07T17:30:00",
+    duration_min: 90,
+    duration_source: "AI_ESTIMATE",
+    priority: "P3_LOW",
     is_locked: false,
   },
 ];
 
 const HOURS = [
   "08:00", "09:00", "10:00", "11:00", "12:00", "13:00",
-  "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
+  "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"
 ];
 
 export default function PlannerPage() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [scheduledBlocks, setScheduledBlocks] = useState<ScheduledBlock[]>(MOCK_SCHEDULE_BLOCKS);
+  const [scheduledBlocks, setScheduledBlocks] = useState<EnrichedScheduledBlock[]>([]);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [hasConflict, setHasConflict] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
+  const formatDateStr = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   // Focus capacity calculations
   const totalAvailableMin = currentPlan?.total_available_minutes || 480;
-  const totalScheduledMin = currentPlan?.total_scheduled_minutes || scheduledBlocks.reduce((acc, b) => {
-    const start = new Date(b.start_time).getTime();
-    const end = new Date(b.end_time).getTime();
-    return acc + Math.round((end - start) / 60000);
-  }, 0);
-  const capacityPct = currentPlan?.capacity_percentage ?? Math.round((totalScheduledMin / totalAvailableMin) * 100);
+  const totalScheduledMin = currentPlan?.total_scheduled_minutes ?? scheduledBlocks.reduce((acc, b) => acc + (b.duration_min || 0), 0);
+  const capacityPct = currentPlan?.capacity_percentage ?? Math.min(100, Math.round((totalScheduledMin / totalAvailableMin) * 100));
 
-  const fetchPlan = async () => {
+  const fetchPlan = useCallback(async () => {
+    const dateStr = formatDateStr(currentDate);
     try {
-      const p = await getTodayPlan();
+      const p = await getPlanForDate(dateStr);
       if (p) {
         setCurrentPlan(p);
         if (p.slots && p.slots.length > 0) {
-          const blocks: ScheduledBlock[] = p.slots.map((s, idx) => ({
-            id: `slot-${idx}`,
+          const blocks: EnrichedScheduledBlock[] = p.slots.map((s, idx) => ({
+            id: `slot-${s.task_id}-${idx}`,
             task_id: s.task_id,
             task_title: s.title,
             start_time: s.start_time,
             end_time: s.end_time,
+            duration_min: s.duration_min,
+            duration_source: s.duration_source,
+            deadline: s.deadline,
+            priority: typeof s.priority === "string" ? s.priority : null,
+            scheduling_status: s.scheduling_status,
+            explanation: s.explanation,
             is_locked: false,
           }));
           setScheduledBlocks(blocks);
+        } else {
+          // If viewing today and empty, show initial mock blocks for demo; if navigating to tomorrow/other days show true empty
+          const isToday = formatDateStr(new Date()) === dateStr;
+          setScheduledBlocks(isToday ? MOCK_SCHEDULE_BLOCKS : []);
         }
       }
     } catch {
-      // Fallback to mock schedule
+      const isToday = formatDateStr(new Date()) === dateStr;
+      setScheduledBlocks(isToday ? MOCK_SCHEDULE_BLOCKS : []);
     }
-  };
+  }, [currentDate]);
 
   useEffect(() => {
     fetchPlan();
-  }, [currentDate]);
+  }, [fetchPlan]);
 
   const handleApplyReschedule = async () => {
     if (!currentPlan?.reschedule_suggestions?.length) return;
@@ -107,12 +150,18 @@ export default function PlannerPage() {
     try {
       const updatedPlan = await applyReschedule(currentPlan.reschedule_suggestions);
       setCurrentPlan(updatedPlan);
-      const blocks: ScheduledBlock[] = updatedPlan.slots.map((s, idx) => ({
-        id: `slot-${idx}`,
+      const blocks: EnrichedScheduledBlock[] = updatedPlan.slots.map((s, idx) => ({
+        id: `slot-${s.task_id}-${idx}`,
         task_id: s.task_id,
         task_title: s.title,
         start_time: s.start_time,
         end_time: s.end_time,
+        duration_min: s.duration_min,
+        duration_source: s.duration_source,
+        deadline: s.deadline,
+        priority: typeof s.priority === "string" ? s.priority : null,
+        scheduling_status: s.scheduling_status,
+        explanation: s.explanation,
         is_locked: false,
       }));
       setScheduledBlocks(blocks);
@@ -127,12 +176,15 @@ export default function PlannerPage() {
 
   const handleSimulateConflict = () => {
     setHasConflict(true);
-    const conflictBlock: ScheduledBlock = {
+    const conflictBlock: EnrichedScheduledBlock = {
       id: "conflict-block",
       task_id: "task-conflict",
       task_title: "⚠️ Overlapping Emergency Lab Review",
-      start_time: "2026-11-07T11:30:00",
-      end_time: "2026-11-07T12:30:00",
+      start_time: `${formatDateStr(currentDate)}T11:30:00`,
+      end_time: `${formatDateStr(currentDate)}T12:30:00`,
+      duration_min: 60,
+      duration_source: "USER_EXPLICIT",
+      priority: "P1_CRITICAL",
       is_locked: false,
     };
     setScheduledBlocks((prev) => [...prev, conflictBlock]);
@@ -147,8 +199,8 @@ export default function PlannerPage() {
             return {
               ...b,
               task_title: "Resolved: Lab Review",
-              start_time: "2026-11-07T18:00:00",
-              end_time: "2026-11-07T19:00:00",
+              start_time: `${formatDateStr(currentDate)}T18:00:00`,
+              end_time: `${formatDateStr(currentDate)}T19:00:00`,
             };
           }
           return b;
@@ -378,7 +430,7 @@ export default function PlannerPage() {
                         <div
                           key={b.id}
                           className={cn(
-                            "p-3.5 rounded-xl border transition flex items-center justify-between gap-4",
+                            "p-3.5 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-3",
                             isEmergency
                               ? "bg-rose-950/40 border-rose-500/50 text-rose-200"
                               : b.is_locked
@@ -386,20 +438,69 @@ export default function PlannerPage() {
                               : "bg-canvas-subtle/80 border-slate-700 text-slate-200"
                           )}
                         >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={cn(
-                                "w-2.5 h-2.5 rounded-full flex-shrink-0",
-                                isEmergency
-                                  ? "bg-rose-500 animate-ping"
-                                  : b.is_locked
-                                  ? "bg-sky-400"
-                                  : "bg-cyber-amber-400"
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={cn(
+                                  "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                                  isEmergency
+                                    ? "bg-rose-500 animate-ping"
+                                    : b.is_locked
+                                    ? "bg-sky-400"
+                                    : "bg-cyber-amber-400"
+                                )}
+                              />
+                              <p className="text-sm font-bold text-white tracking-tight">{b.task_title}</p>
+
+                              {/* Priority Badge */}
+                              {b.priority && (
+                                <span
+                                  className={cn(
+                                    "text-[10px] px-2 py-0.5 rounded font-bold uppercase",
+                                    b.priority.includes("P1")
+                                      ? "bg-rose-950/80 border border-rose-500/40 text-rose-300"
+                                      : b.priority.includes("P2")
+                                      ? "bg-amber-950/80 border border-amber-500/40 text-amber-300"
+                                      : "bg-sky-950/80 border border-sky-500/40 text-sky-300"
+                                  )}
+                                >
+                                  {b.priority.replace("_", " ")}
+                                </span>
                               )}
-                            />
-                            <div>
-                              <p className="text-sm font-semibold">{b.task_title}</p>
-                              <p className="text-xs text-slate-400 font-mono mt-0.5">
+
+                              {/* Duration Source Badge */}
+                              {b.duration_source === "USER_EXPLICIT" ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">
+                                  Explicit: {b.duration_min}m
+                                </span>
+                              ) : b.duration_source === "AI_ESTIMATE" ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950/80 border border-purple-500/40 text-purple-300 font-mono">
+                                  AI Estimate: {b.duration_min}m
+                                </span>
+                              ) : b.duration_source === "LEARNED_PRIOR" ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-mono">
+                                  Learned Prior: {b.duration_min}m
+                                </span>
+                              ) : (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">
+                                  {b.duration_min}m
+                                </span>
+                              )}
+
+                              {/* Deadline Badge */}
+                              {b.deadline && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 font-mono flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-amber-400" />
+                                  <span>
+                                    Due {new Date(b.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Time Interval & Explanation */}
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-slate-400">
+                              <span className="font-mono font-medium text-slate-300">
                                 {new Date(b.start_time).toLocaleTimeString([], {
                                   hour: "2-digit",
                                   minute: "2-digit",
@@ -409,11 +510,17 @@ export default function PlannerPage() {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 })}
-                              </p>
+                              </span>
+                              {b.explanation && (
+                                <span className="text-sky-300/90 text-xs italic flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                                  <span>{b.explanation}</span>
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 self-start md:self-center flex-shrink-0">
                             {b.is_locked && (
                               <span className="text-[10px] px-2 py-0.5 rounded bg-sky-950 border border-sky-500/30 text-sky-300 font-mono">
                                 Locked Commitment

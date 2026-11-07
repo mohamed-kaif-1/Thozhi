@@ -164,3 +164,4 @@ Updated `frontend/src/components/proposal/ProposalReviewCard.tsx`:
   - `Duration`: `None` (`UNSPECIFIED_DURATION`)
   - `Priority`: `None` (`UNSPECIFIED_PRIORITY`)
   - `Status`: `PENDING_REVIEW`
+

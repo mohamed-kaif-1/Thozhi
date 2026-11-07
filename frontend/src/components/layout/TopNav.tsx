@@ -5,10 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Mic, Bell } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { useUserProfile } from "@/lib/useUserProfile";
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
+  const { displayName, initials } = useUserProfile();
 
   const getPageTitle = (path: string) => {
     switch (path) {
@@ -84,10 +86,11 @@ export const TopNav: React.FC = () => {
         {/* User Profile Mini Trigger */}
         <Link
           href="/settings"
-          className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-500 to-amber-300 border border-amber-400/40 text-slate-950 font-black text-xs flex items-center justify-center shadow"
+          className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-500 to-amber-300 border border-amber-400/40 text-slate-950 font-black text-xs flex items-center justify-center shadow uppercase hover:ring-2 hover:ring-amber-400/50 transition"
           aria-label="Profile settings"
+          title={`Signed in as ${displayName}`}
         >
-          KP
+          {initials}
         </Link>
       </div>
     </header>

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, date, time
 from uuid import UUID
+from backend.app.schemas.intent import PriorityEnum
 
 class AvailabilityWindow(BaseModel):
     id: Optional[UUID] = None
@@ -23,6 +24,11 @@ class ScheduleSlot(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_min: int
+    duration_source: str = "USER_EXPLICIT"
+    deadline: Optional[datetime] = None
+    priority: Optional[PriorityEnum] = None
+    scheduling_status: str = "SCHEDULED"
+    explanation: Optional[str] = None
 
 class ConflictWarning(BaseModel):
     code: str

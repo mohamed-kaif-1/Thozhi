@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { useUserProfile } from "@/lib/useUserProfile";
 
 interface NavItem {
   name: string;
@@ -46,6 +47,7 @@ const PRIMARY_NAV: NavItem[] = [
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { displayName, initials } = useUserProfile();
 
   return (
     <aside
@@ -135,11 +137,11 @@ export const Sidebar: React.FC = () => {
         {/* User Profile Mini */}
         {!isCollapsed && (
           <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-3 px-2 py-1">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 border border-amber-400/40 flex items-center justify-center text-slate-950 font-black text-xs">
-              KP
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 border border-amber-400/40 flex items-center justify-center text-slate-950 font-black text-xs uppercase">
+              {initials}
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-white truncate">Karthi P.</p>
+              <p className="text-xs font-bold text-white truncate" title={displayName}>{displayName}</p>
               <p className="text-[10px] text-sky-400 font-medium truncate">Pro Free Plan</p>
             </div>
           </div>

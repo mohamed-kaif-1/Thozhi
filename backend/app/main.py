@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from backend.app.core.config import settings
 from backend.app.core.errors import AppException
-from backend.app.routers import captures, proposals, tasks, plans, memory
+from backend.app.routers import captures, proposals, tasks, plans, memory, users
 from backend.app.db.supabase_client import supabase_client
 
 app = FastAPI(
@@ -38,6 +38,7 @@ app.include_router(proposals.router, prefix=settings.API_V1_STR)
 app.include_router(tasks.router, prefix=settings.API_V1_STR)
 app.include_router(plans.router, prefix=settings.API_V1_STR)
 app.include_router(memory.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)
 
 @app.get("/health", tags=["System"])
 async def health_check():

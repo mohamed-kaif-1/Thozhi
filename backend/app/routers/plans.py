@@ -47,6 +47,14 @@ async def get_today_plan():
     req = PlanGenerateRequest(target_date=today)
     return await generate_plan(req)
 
+@router.get("/date/{target_date}", response_model=PlanResponse)
+async def get_plan_for_date(target_date: date):
+    """
+    Helper for a specific target date schedule.
+    """
+    req = PlanGenerateRequest(target_date=target_date)
+    return await generate_plan(req)
+
 @router.post("/reschedule/apply", response_model=PlanResponse)
 async def apply_reschedule(request: RescheduleApplyRequest):
     """

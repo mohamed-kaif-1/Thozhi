@@ -105,6 +105,7 @@ export interface Task {
   priority?: Priority | null;
   estimated_duration_min?: number | null;
   actual_duration_min?: number | null;
+  duration_source?: string | null;
   deadline?: string | null;
   scheduled_date?: string | null;
   scheduled_start?: string | null;
@@ -130,6 +131,20 @@ export interface ScheduleSlot {
   start_time: string;
   end_time: string;
   duration_min: number;
+  duration_source?: string;
+  deadline?: string | null;
+  priority?: Priority | string | null;
+  scheduling_status?: string;
+  explanation?: string | null;
+}
+
+export interface UserProfile {
+  id: string;
+  display_name: string;
+  email?: string | null;
+  timezone?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ScheduledBlock {

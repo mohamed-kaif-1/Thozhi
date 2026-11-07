@@ -102,6 +102,38 @@ class InMemoryStore:
         for p in seed_prefs:
             self.memory_preferences[p["id"]] = p
 
+    # ---------------- USER PROFILE ----------------
+    def get_user_profile(self, user_id: UUID) -> dict:
+        user = self.users.get(user_id)
+        if not user:
+            user = {
+                "id": user_id,
+                "email": "user@thozhi.ai",
+                "full_name": "Karthi P.",
+                "locale": "ta-IN",
+                "timezone": "Asia/Kolkata"
+            }
+            self.users[user_id] = user
+        return user
+
+    def update_user_profile(self, user_id: UUID, updates: dict) -> dict:
+        user = self.get_user_profile(user_id)
+        for k, v in updates.items():
+            if v is not None:
+                user[k] = v
+        if "full_name" in updates and updates["full_name"]:
+            now = get_utc_now()
+            self.set_memory_preference(
+                user_id=user_id,
+                create_req=MemoryPreferenceCreate(
+                    preference_key="user_profile",
+                    category=MemoryCategoryEnum.USER_PROFILE,
+                    preference_value={"full_name": updates["full_name"]},
+                    description=f"User display name is {updates['full_name']}."
+                )
+            )
+        return user
+
     # ---------------- PROPOSALS & EXTRACTIONS ----------------
     def create_proposal_from_extraction(
         self,
@@ -446,16 +478,28 @@ class InMemoryStore:
             if decision.is_approved:
                 item["decision_state"] = "APPROVED"
                 task_id = uuid4()
+                resolved_deadline = datetime.fromisoformat(decision.normalized_deadline_iso) if decision.normalized_deadline_iso else item.get("normalized_deadline")
+                if decision.scheduled_date:
+                    sched_date = date.fromisoformat(decision.scheduled_date)
+                elif resolved_deadline:
+                    sched_date = resolved_deadline.date()
+                else:
+                    sched_date = date.today()
+
+                dur_min = decision.estimated_duration_min if decision.estimated_duration_min is not None else item.get("estimated_duration_min")
+                dur_source = "USER_EXPLICIT" if decision.estimated_duration_min is not None else item.get("duration_source", "UNSPECIFIED")
+
                 new_task = {
                     "id": task_id,
                     "user_id": user_id,
                     "title": decision.proposed_title or item["proposed_title"],
                     "description": item["description"],
                     "priority": decision.priority or item["priority"],
-                    "estimated_duration_min": decision.estimated_duration_min or item["estimated_duration_min"],
+                    "estimated_duration_min": dur_min,
+                    "duration_source": dur_source,
                     "actual_duration_min": None,
-                    "deadline": datetime.fromisoformat(decision.normalized_deadline_iso) if decision.normalized_deadline_iso else item["normalized_deadline"],
-                    "scheduled_date": date.fromisoformat(decision.scheduled_date) if decision.scheduled_date else date.today(),
+                    "deadline": resolved_deadline,
+                    "scheduled_date": sched_date,
                     "scheduled_start": None,
                     "scheduled_end": None,
                     "status": "PENDING",
@@ -497,6 +541,7 @@ class InMemoryStore:
                     raise DuplicateTaskException(title=task_create.title, scheduled_date=str(target_sched_date))
                     
         task_id = uuid4()
+        dur_src = getattr(task_create, "duration_source", "USER_EXPLICIT" if task_create.estimated_duration_min else "UNSPECIFIED")
         task_dict = {
             "id": task_id,
             "user_id": user_id,
@@ -504,6 +549,7 @@ class InMemoryStore:
             "description": task_create.description,
             "priority": task_create.priority,
             "estimated_duration_min": task_create.estimated_duration_min,
+            "duration_source": dur_src,
             "actual_duration_min": None,
             "deadline": task_create.deadline,
             "scheduled_date": target_sched_date,

@@ -10,6 +10,7 @@ class MemoryCategoryEnum(str, Enum):
     LANGUAGE = "LANGUAGE"
     DURATION_PRIOR = "DURATION_PRIOR"
     CONTEXTUAL = "CONTEXTUAL"
+    USER_PROFILE = "USER_PROFILE"
 
 class MemoryPreferenceCreate(BaseModel):
     preference_key: str = Field(description="e.g., 'preferred_focus_start_time', 'technical_report_duration_prior'")

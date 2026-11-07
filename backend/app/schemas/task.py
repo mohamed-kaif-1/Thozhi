@@ -18,6 +18,7 @@ class TaskResponse(BaseModel):
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     estimated_duration_min: Optional[int] = None
+    duration_source: str = "UNSPECIFIED"
     actual_duration_min: Optional[int] = None
     deadline: Optional[datetime] = None
     scheduled_date: Optional[date] = None
@@ -38,6 +39,7 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     estimated_duration_min: Optional[int] = None
+    duration_source: str = "UNSPECIFIED"
     deadline: Optional[datetime] = None
     scheduled_date: Optional[date] = None
     origin_proposal_item_id: Optional[UUID] = None
@@ -47,6 +49,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     estimated_duration_min: Optional[int] = None
+    duration_source: Optional[str] = None
     deadline: Optional[datetime] = None
     scheduled_date: Optional[date] = None
     scheduled_start: Optional[datetime] = None
