@@ -141,7 +141,10 @@ def test_p2_invalid_signature_rejected():
 def test_p2_missing_subject_rejected():
     """Token missing the 'sub' claim must raise InvalidTokenError."""
     now = datetime.now(timezone.utc)
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "role": "authenticated",
         "aud": "authenticated",
@@ -156,7 +159,10 @@ def test_p2_missing_subject_rejected():
 def test_p2_malformed_uuid_subject_rejected():
     """Token whose 'sub' claim is not a valid RFC 4122 UUID must be rejected."""
     now = datetime.now(timezone.utc)
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "sub": "non-uuid-username",
         "role": "authenticated",
@@ -179,7 +185,10 @@ def test_p2_anonymous_role_rejected():
 
 def test_p2_none_algorithm_rejected():
     """Unsigned token using 'none' algorithm must be rejected."""
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "sub": str(uuid4()),
         "role": "authenticated",
@@ -196,7 +205,10 @@ def test_p2_unsupported_algorithm_rejected():
     """Token signed with an algorithm outside the allowed list must be rejected."""
     user_id = uuid4()
     now = datetime.now(timezone.utc)
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "sub": str(user_id),
         "role": "authenticated",
@@ -253,7 +265,10 @@ def test_p2_asymmetric_jwks_verification():
 
     user_id = uuid4()
     now = datetime.now(timezone.utc)
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "sub": str(user_id),
         "role": "authenticated",
@@ -294,7 +309,10 @@ def test_p2_asymmetric_es256_jwks_verification():
 
     user_id = uuid4()
     now = datetime.now(timezone.utc)
-    iss_val = getattr(settings, "SUPABASE_JWT_ISSUER", "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1")
+    iss_val = (
+        getattr(settings, "SUPABASE_JWT_ISSUER", None)
+        or "https://bwzqudaaxfubtbgwmevo.supabase.co/auth/v1"
+    )
     payload = {
         "sub": str(user_id),
         "role": "authenticated",
