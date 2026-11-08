@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, date, time, timedelta, timezone
+from unittest.mock import patch
 from uuid import uuid4
 from fastapi.testclient import TestClient
 
@@ -238,6 +239,7 @@ def test_dependency_dag_and_cycle_rejection():
 def test_planning_engine_deadline_exceeded_warning():
     """
     Phase 5.2: Detect when a task cannot meet its specified deadline.
+    Uses a deterministic controlled reference time to eliminate wall-clock flakiness.
     """
     today = date.today()
     # Configure availability window: 09:00 to 12:00
@@ -263,14 +265,20 @@ def test_planning_engine_deadline_exceeded_warning():
         "scheduled_date": str(today)
     })
 
-    plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
-    assert plan_res.status_code == 200
-    plan = plan_res.json()
-    
-    # Task 2 cannot finish by 10:30 because Task 1 occupies 09:00-11:00
-    deadline_conflicts = [c for c in plan["conflicts"] if c["code"] == "DEADLINE_EXCEEDED"]
-    assert len(deadline_conflicts) > 0
-    assert "Urgent Review" in deadline_conflicts[0]["message"]
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.combine(today, time(8, 0))
+
+    with patch("backend.app.modules.planning.engine.datetime", FixedDateTime):
+        plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
+        assert plan_res.status_code == 200
+        plan = plan_res.json()
+
+        # Task 2 cannot finish by 10:30 because Task 1 occupies 09:00-11:00
+        deadline_conflicts = [c for c in plan["conflicts"] if c["code"] == "DEADLINE_EXCEEDED"]
+        assert len(deadline_conflicts) > 0
+        assert "Urgent Review" in deadline_conflicts[0]["message"]
 
 def test_planning_engine_overcapacity_and_reschedule_flow():
     """
@@ -286,7 +294,7 @@ def test_planning_engine_overcapacity_and_reschedule_flow():
     r1 = client.post("/api/v1/tasks", json={"title": "Sprint Planning", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
     r2 = client.post("/api/v1/tasks", json={"title": "Client Call", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
     r3 = client.post("/api/v1/tasks", json={"title": "Documentation Cleanup", "estimated_duration_min": 60, "priority": "P3", "scheduled_date": str(today)})
-    
+
     plan_res = client.post("/api/v1/plans/generate", json={"target_date": str(today)})
     assert plan_res.status_code == 200
     plan = plan_res.json()
@@ -294,7 +302,7 @@ def test_planning_engine_overcapacity_and_reschedule_flow():
     assert len(plan["slots"]) == 2
     assert len(plan["unassigned_task_ids"]) == 1
     assert len(plan["reschedule_suggestions"]) == 1
-    
+
     sugg = plan["reschedule_suggestions"][0]
     assert sugg["title"] == "Documentation Cleanup"
 
@@ -403,7 +411,7 @@ def test_expired_proposal_rejection():
         ]
     )
     prop = store.create_proposal_from_extraction(store.default_user_id, extraction)
-    
+
     # Manually expire the proposal
     store.proposals[prop.id]["expires_at"] = datetime.now(timezone.utc) - timedelta(hours=1)
 
@@ -499,7 +507,7 @@ def test_multi_interval_scheduling_with_calendar_events():
     assert plan_res.status_code == 200
     plan = plan_res.json()
     assert len(plan["slots"]) == 3
-    
+
     slot_3 = [s for s in plan["slots"] if s["title"] == "Post-Lunch Code Review"][0]
     start_dt = datetime.fromisoformat(slot_3["start_time"])
     end_dt = datetime.fromisoformat(slot_3["end_time"])
@@ -515,12 +523,12 @@ def test_multi_level_dag_dependency_chain():
     store.availability_windows[store.default_user_id] = [
         AvailabilityWindow(day_of_week=today.weekday(), start_time=time(9, 0), end_time=time(18, 0))
     ]
-    
+
     r_d = client.post("/api/v1/tasks", json={"title": "Stage 1 Design", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
     r_f = client.post("/api/v1/tasks", json={"title": "Stage 2 Frontend", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
     r_b = client.post("/api/v1/tasks", json={"title": "Stage 3 Backend", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
     r_q = client.post("/api/v1/tasks", json={"title": "Stage 4 QA", "estimated_duration_min": 60, "priority": "P1", "scheduled_date": str(today)})
-    
+
     id_d = r_d.json()["id"]
     id_f = r_f.json()["id"]
     id_b = r_b.json()["id"]
@@ -535,7 +543,7 @@ def test_multi_level_dag_dependency_chain():
     assert plan_res.status_code == 200
     slots = plan_res.json()["slots"]
     assert len(slots) == 4
-    
+
     # Verify strict temporal sequence
     times = [(s["title"], datetime.fromisoformat(s["start_time"]), datetime.fromisoformat(s["end_time"])) for s in slots]
     assert times[0][0] == "Stage 1 Design"

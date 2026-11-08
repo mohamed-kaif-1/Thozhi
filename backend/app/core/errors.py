@@ -32,6 +32,25 @@ class ASRProviderException(AppException):
             extra={"provider": provider}
         )
 
+class NLUProviderException(AppException):
+    def __init__(
+        self,
+        detail: str = "Natural language understanding service failed",
+        provider: str = "gemini",
+        status_code: int = status.HTTP_502_BAD_GATEWAY,
+        error_code: str = "NLU_FAILURE",
+        extra: Optional[Dict[str, Any]] = None
+    ):
+        combined_extra = {"provider": provider}
+        if extra:
+            combined_extra.update(extra)
+        super().__init__(
+            status_code=status_code,
+            detail=detail,
+            error_code=error_code,
+            extra=combined_extra
+        )
+
 class SchedulingCycleException(AppException):
     def __init__(self, cycle_info: Union[str, List[Any]]):
         detail = cycle_info if isinstance(cycle_info, str) else "Circular task dependency detected in schedule graph"
@@ -75,4 +94,12 @@ class DuplicateTaskException(AppException):
             detail=f"Active task with title '{title}' already exists for date {scheduled_date or 'today'}.",
             error_code="DUPLICATE_TASK",
             extra={"title": title, "scheduled_date": scheduled_date}
+        )
+
+class PermissionDeniedException(AppException):
+    def __init__(self, detail: str = "Access denied for the requested resource"):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=detail,
+            error_code="PERMISSION_DENIED"
         )

@@ -42,7 +42,7 @@ class GeminiNLUProvider(BaseNLUProvider):
             raise RuntimeError("GEMINI_API_KEY is not configured")
 
         ref_date_str = (reference_date or date.today()).isoformat()
-        
+
         prompt = f"""
 Reference Today's Date: {ref_date_str}
 Timezone: {user_timezone}
@@ -109,5 +109,7 @@ Schema:
             parsed_data = json.loads(text_candidate)
             extraction_res = ExtractionResponse.model_validate(parsed_data)
             extraction_res.transcript_text = transcript_text
+            extraction_res.model_provider = "gemini-2.5-flash"
+            extraction_res.model_version = self.model
+            extraction_res.is_mock = False
             return extraction_res
-

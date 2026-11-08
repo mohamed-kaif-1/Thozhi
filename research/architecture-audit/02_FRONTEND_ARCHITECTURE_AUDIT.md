@@ -16,7 +16,7 @@
 ```mermaid
 flowchart TD
     App["Next.js 14 App Router"]
-    
+
     subgraph LiveRoutes["Production-Connected MVP Routes (100% Backend Integrated)"]
         R_Home["/ (Dashboard & Active Timeline)"]
         R_Capture["/capture (Thought Capture Studio)"]
@@ -25,7 +25,7 @@ flowchart TD
         R_Memory["/memory (Sovereign Preferences & GDPR)"]
         R_Settings["/settings (User Profile & Timezone)"]
     end
-    
+
     subgraph MockRoutes["Stage-2 Prototype Routes (Client-Side Static Mock Arrays)"]
         R_Cal["/calendar (Static MOCK_EVENTS from 2026-11-07)"]
         R_Assist["/assistant (Static Simulated Chat Dialogue)"]
@@ -34,7 +34,7 @@ flowchart TD
         R_Proj["/projects (Static MOCK_PROJECTS array)"]
         R_Notif["/notifications (Static MOCK_NOTIFICATIONS)"]
     end
-    
+
     App --> LiveRoutes
     App --> MockRoutes
 ```

@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-This plan provides an actionable, four-phase roadmap for bringing the THOZHI repository into an optimal architectural state. 
+This plan provides an actionable, four-phase roadmap for bringing the THOZHI repository into an optimal architectural state.
 
 In strict adherence to the project audit rules:
 - **Phase 1 (Safe Immediate Cleanup):** Fixes verified bugs, dead code, missing packaging files, and documentation defects without touching public API contracts or breaking existing functionality.

@@ -41,6 +41,9 @@ export function useUserProfile() {
     let mounted = true;
 
     const fetchProfile = async () => {
+      // Do not attempt to query profile if no auth token is present
+      const token = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY ? "thozhi_auth_token" : "") : null;
+      if (!token) return;
       try {
         const data = await getUserProfile();
         if (mounted && data) {

@@ -15,6 +15,15 @@ class MockNLUProvider(BaseNLUProvider):
     Accurately emulates extraction for Tanglish, Tamil, and English inputs across
     the synthetic benchmark scenarios defined in research/stage-0/11-synthetic-test-scenarios.md.
     """
+    def __init__(self):
+        from backend.app.core.config import settings
+        env = getattr(settings, "ENVIRONMENT", "development").lower()
+        if env == "production":
+            raise RuntimeError(
+                "CRITICAL ARCHITECTURAL VIOLATION: MockNLUProvider is strictly forbidden in production mode. "
+                "Production must use genuine AI providers or fail closed."
+            )
+
     async def extract_intent(
         self,
         transcript_text: str,
@@ -23,12 +32,12 @@ class MockNLUProvider(BaseNLUProvider):
     ) -> ExtractionResponse:
         ref_date = reference_date or date.today()
         text_lower = transcript_text.lower()
-        
+
         items = []
         clarifications: List[ClarificationQuestion] = []
         summary = "Extracted actionable items and commitments from user input."
         detected_lang = "Tanglish"
-        
+
         # Test Case 1 / Scenario 03: Client call + report submission (English, Tanglish & Tamil script)
         is_client_call = any(kw in text_lower for kw in [
             "client call", "report submit", "கிளைண்ட் கால்", "க்ளையண்ட் கால்", "ரிப்போர்ட் சப்மிட்", "அறிக்கை"
@@ -38,7 +47,7 @@ class MockNLUProvider(BaseNLUProvider):
             summary = "User has an evening client call followed by report submission."
             call_dt = datetime.combine(ref_date, datetime.min.time()) + timedelta(hours=17)
             report_dt = datetime.combine(ref_date, datetime.min.time()) + timedelta(hours=20)
-            
+
             items.append(
                 ProposedItemExtraction(
                     temp_id="item_1",
@@ -557,16 +566,23 @@ class MockNLUProvider(BaseNLUProvider):
         else:
             from backend.app.providers.nlu.semantic_parser import SemanticIntentParser
             parser = SemanticIntentParser()
-            return await parser.parse(
+            sem_res = await parser.parse(
                 text=transcript_text,
                 reference_date=ref_date,
                 user_timezone=user_timezone
             )
+            sem_res.model_provider = "mock"
+            sem_res.model_version = "mock-semantic-v1"
+            sem_res.is_mock = True
+            return sem_res
 
         return ExtractionResponse(
             intent_summary=summary,
             detected_language=detected_lang,
             transcript_text=transcript_text,
             extracted_items=items,
-            clarifications=clarifications
+            clarifications=clarifications,
+            model_provider="mock",
+            model_version="mock-v1",
+            is_mock=True
         )

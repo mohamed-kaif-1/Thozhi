@@ -20,7 +20,10 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 -- Dynamic auth user check function
 CREATE OR REPLACE FUNCTION current_user_id() RETURNS UUID AS $$
 BEGIN
-    RETURN NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
+    RETURN COALESCE(
+        auth.uid(),
+        NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID
+    );
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -42,4 +45,3 @@ CREATE POLICY audit_self ON audit_logs FOR ALL USING (user_id = current_user_id(
 CREATE POLICY plan_items_self ON plan_items FOR ALL USING (
     EXISTS (SELECT 1 FROM plans WHERE plans.id = plan_items.plan_id AND plans.user_id = current_user_id())
 );
-

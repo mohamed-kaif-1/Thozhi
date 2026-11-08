@@ -93,8 +93,8 @@ def test_stage7_complete_end_to_end_thozhi_pipeline():
             "answers": [
                 {
                     "question_id": "q-lab-deadline",
-                    "answer": "Today 4 PM",
-                    "resolved_deadline_iso": f"{today}T16:00:00Z",
+                    "answer": "Today End of Day",
+                    "resolved_deadline_iso": f"{today}T23:59:00Z",
                     "resolved_duration_min": 45
                 }
             ]
@@ -203,7 +203,7 @@ def test_stage7_audio_capture_to_scheduled_task_journey():
     """
     today = date.today()
     tomorrow = today + pytest.importorskip("datetime").timedelta(days=1)
-    
+
     # 1. User records audio via microphone
     # 44-byte minimal WAV header
     wav_header = b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00\x00}\x00\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
@@ -218,7 +218,7 @@ def test_stage7_audio_capture_to_scheduled_task_journey():
     assert len(proposal["items"]) >= 1
 
     item_id = proposal["items"][0]["id"]
-    
+
     # 2. Strict invariant: Zero silent task creation before approval
     tasks_before = client.get("/api/v1/tasks").json()
     assert len(tasks_before) == 0

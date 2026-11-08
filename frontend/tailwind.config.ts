@@ -1,10 +1,12 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/context/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -12,10 +14,10 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         canvas: {
-          DEFAULT: "#080B11", // Deep Obsidian Black
-          subtle: "#0B0F19",
-          card: "#0F172A",   // Slate-Black Surface Card
-          elevated: "#131D33",
+          DEFAULT: "var(--canvas-bg)",
+          subtle: "var(--canvas-subtle)",
+          card: "var(--canvas-card)",
+          elevated: "var(--canvas-elevated)",
         },
         cyber: {
           blue: {

@@ -29,15 +29,15 @@ class PlanningEngine:
         """
         task_map: Dict[UUID, TaskResponse] = {t.id: t for t in tasks}
         task_ids = set(task_map.keys())
-        
+
         in_degree: Dict[UUID, int] = {t_id: 0 for t_id in task_ids}
         adj: Dict[UUID, List[UUID]] = {t_id: [] for t_id in task_ids}
-        
+
         for prereq_id, dep_id in dependencies:
             if prereq_id in task_ids and dep_id in task_ids:
                 adj[prereq_id].append(dep_id)
                 in_degree[dep_id] += 1
-                
+
         # Priority queue / sorted list by priority and deadline
         def sort_key(t_id: UUID):
             task = task_map[t_id]
@@ -47,24 +47,24 @@ class PlanningEngine:
 
         zero_in_degree = [t_id for t_id, deg in in_degree.items() if deg == 0]
         zero_in_degree.sort(key=sort_key)
-        
+
         sorted_tasks: List[TaskResponse] = []
-        
+
         while zero_in_degree:
             curr_id = zero_in_degree.pop(0)
             sorted_tasks.append(task_map[curr_id])
-            
+
             for neighbor_id in adj[curr_id]:
                 in_degree[neighbor_id] -= 1
                 if in_degree[neighbor_id] == 0:
                     zero_in_degree.append(neighbor_id)
-            
+
             zero_in_degree.sort(key=sort_key)
-            
+
         if len(sorted_tasks) < len(tasks):
             cycle_tasks = [task_map[t_id].title for t_id, deg in in_degree.items() if deg > 0]
             raise SchedulingCycleException(f"Cyclic dependency detected among tasks: {', '.join(cycle_tasks)}")
-            
+
         return sorted_tasks
 
     @staticmethod
@@ -79,14 +79,14 @@ class PlanningEngine:
         # Convert windows for this day of week into concrete datetime ranges
         day_of_week = target_date.weekday()
         day_windows: List[Tuple[datetime, datetime]] = []
-        
+
         for w in windows:
             if w.day_of_week == day_of_week:
                 start_dt = datetime.combine(target_date, w.start_time)
                 end_dt = datetime.combine(target_date, w.end_time)
                 if end_dt > start_dt:
                     day_windows.append((start_dt, end_dt))
-                    
+
         if not day_windows:
             # Default window 09:00 to 18:00 if no specific window defined
             start_dt = datetime.combine(target_date, time(9, 0))
@@ -99,7 +99,7 @@ class PlanningEngine:
             for e in busy_events if e.is_blocking and e.end_time > day_windows[0][0] and e.start_time < day_windows[-1][1]
         ]
         blocking_events.sort(key=lambda x: x[0])
-        
+
         merged_busy: List[Tuple[datetime, datetime]] = []
         for start, end in blocking_events:
             if not merged_busy:
@@ -125,7 +125,7 @@ class PlanningEngine:
                     break
             if curr_start < win_end:
                 free_intervals.append((curr_start, win_end))
-                
+
         return [slot for slot in free_intervals if (slot[1] - slot[0]).total_seconds() >= 300] # min 5 min
 
     @staticmethod
@@ -145,7 +145,7 @@ class PlanningEngine:
         src = getattr(task, "duration_source", None)
         if task.estimated_duration_min is not None and src in ("USER_EXPLICIT", "LEARNED_PRIOR"):
             return task.estimated_duration_min, src, False
-            
+
         if task.estimated_duration_min is not None and src == "AI_ESTIMATE":
             return task.estimated_duration_min, "AI_ESTIMATE", True
 
@@ -196,23 +196,23 @@ class PlanningEngine:
 
         sorted_tasks = cls.topological_sort(tasks, dependencies)
         free_slots = cls.calculate_free_intervals(target_date, windows, busy_events)
-        
+
         total_available_minutes = sum(int((s[1] - s[0]).total_seconds() // 60) for s in free_slots)
-        
+
         scheduled_slots: List[ScheduleSlot] = []
         unassigned_ids: List[UUID] = []
-        
+
         task_end_times: Dict[UUID, datetime] = {}
-        
+
         # Track remaining intervals dynamically: list of [start, end]
         current_intervals = [[s[0], s[1]] for s in free_slots]
-        
+
         # Build dependency map: task_id -> list of prereqs
         prereq_map: Dict[UUID, List[UUID]] = {t.id: [] for t in tasks}
         for prereq_id, dep_id in dependencies:
             if dep_id in prereq_map:
                 prereq_map[dep_id].append(prereq_id)
-                
+
         for task in sorted_tasks:
             duration_min, dur_source, is_est = cls.infer_task_duration(task)
             duration = timedelta(minutes=duration_min)
@@ -224,7 +224,7 @@ class PlanningEngine:
                 is_past = False
                 if target_date < date.today() or dl_cmp < datetime.combine(target_date, time.min):
                     is_past = True
-                elif target_date == date.today() and dl_cmp < now_cmp:
+                elif target_date == date.today() and dl_cmp <= (now_cmp - timedelta(hours=2)):
                     is_past = True
 
                 if is_past:
@@ -261,7 +261,7 @@ class PlanningEngine:
                         )
                         unassigned_ids.append(task.id)
                         continue
-            
+
             # Earliest start must be after all prereqs finish (Case 6)
             earliest_start = datetime.combine(target_date, time.min)
             for prereq_id in prereq_map[task.id]:
@@ -270,13 +270,13 @@ class PlanningEngine:
                 elif any(t.id == prereq_id for t in tasks):
                     # Prerequisite was not scheduled!
                     earliest_start = datetime.max
-                    
+
             placed = False
             for idx, interval in enumerate(current_intervals):
                 slot_start, slot_end = interval
                 candidate_start = max(slot_start, earliest_start)
                 candidate_end = candidate_start + duration
-                
+
                 if candidate_end <= slot_end:
                     # Check deadline constraint
                     dl_exceeded = False
@@ -284,7 +284,7 @@ class PlanningEngine:
                         dl_cmp = task.deadline.replace(tzinfo=None) if task.deadline.tzinfo else task.deadline
                         if dl_cmp.date() == target_date and candidate_end > dl_cmp:
                             dl_exceeded = True
-                    
+
                     # Generate explainable narrative
                     dur_label = f"{duration_min}m"
                     if dur_source == "AI_ESTIMATE":
@@ -337,7 +337,7 @@ class PlanningEngine:
                     else:
                         current_intervals.pop(idx)
                     break
-                    
+
             if not placed:
                 unassigned_ids.append(task.id)
                 conflicts.append(
@@ -354,7 +354,7 @@ class PlanningEngine:
             round((total_scheduled_minutes / total_available_minutes) * 100, 1)
             if total_available_minutes > 0 else 100.0
         )
-        
+
         if capacity_pct > 100.0:
             conflicts.append(
                 ConflictWarning(
@@ -389,7 +389,7 @@ class PlanningEngine:
             summary_parts.append("Zero temporal or capacity conflicts detected.")
         if reschedule_suggestions:
             summary_parts.append(f"Proposed {len(reschedule_suggestions)} smart rescheduling alternative(s).")
-            
+
         return PlanResponse(
             plan_date=target_date,
             status="PROPOSED",
@@ -402,4 +402,3 @@ class PlanningEngine:
             unassigned_task_ids=unassigned_ids,
             reschedule_suggestions=reschedule_suggestions
         )
-

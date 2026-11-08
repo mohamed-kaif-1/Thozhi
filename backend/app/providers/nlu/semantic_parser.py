@@ -134,16 +134,16 @@ class SemanticIntentParser:
         text_lower = text.lower()
 
         # Time resolution
-        if re.search(r"\b(six|6)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(evening|pm|this\s+evening|குள்ளே|மணிக்கு)\b", text_lower) or ("six o'clock" in text_lower and "evening" in text_lower) or ("6 pm" in text_lower) or ("by six" in text_lower):
+        if re.search(r"\b(six|6)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(evening|pm|this\s+evening|குள்ளே|மணிக்கு)", text_lower) or ("six o'clock" in text_lower and "evening" in text_lower) or ("6 pm" in text_lower) or ("by six" in text_lower):
             time_h = 18
             time_m = 0
-        elif re.search(r"\b(ten|10)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(morning|am|மணிக்கு)\b", text_lower) or ("10 am" in text_lower):
+        elif re.search(r"\b(ten|10)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(morning|am|மணிக்கு)", text_lower) or ("10 am" in text_lower) or ("10 மணிக்கு" in text_lower):
             time_h = 10
             time_m = 0
-        elif re.search(r"\b(five|5)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(evening|pm|மணிக்கு)\b", text_lower) or ("5 pm" in text_lower):
+        elif re.search(r"\b(five|5)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(evening|pm|மணிக்கு)", text_lower) or ("5 pm" in text_lower):
             time_h = 17
             time_m = 0
-        elif re.search(r"\b(eight|8)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(night|pm|மணிக்கு)\b", text_lower) or ("8 pm" in text_lower):
+        elif re.search(r"\b(eight|8)(:(\d{2}))?\s*(o'clock)?\s*(in the\s+)?(night|pm|மணிக்கு)", text_lower) or ("8 pm" in text_lower):
             time_h = 20
             time_m = 0
         elif "tonight" in text_lower:
@@ -297,7 +297,7 @@ class SemanticIntentParser:
         # Step 1: Check language and obtain semantic English text if input is in Tamil/Tanglish
         is_tamil = self.has_tamil_script(raw_text)
         detected_lang = "Tamil" if is_tamil else "Tanglish" if any(kw in raw_text.lower() for kw in ["pannanum", "mudichitu", "irukku", "naalaikku", "kulla", "paakanum"]) else "English"
-        
+
         semantic_text = raw_text
         if is_tamil or detected_lang == "Tanglish":
             try:
@@ -315,7 +315,7 @@ class SemanticIntentParser:
 
         # Step 2: Check for special sentence types
         text_lower = semantic_text.lower()
-        
+
         # A) Questions / Queries
         if semantic_text.strip().endswith("?") or re.search(r"^(what|when|where|who|why|how)\s+(time|is|are|do|does|can|will)\b", text_lower):
             item = ProposedItemExtraction(
@@ -516,7 +516,7 @@ class SemanticIntentParser:
 
         for idx, clause in enumerate(clauses):
             temp_id = f"item_{idx + 1}"
-            
+
             # Extract duration (returns None if not explicit)
             dur_min, dur_src, clause_clean = self._extract_duration(clause)
 

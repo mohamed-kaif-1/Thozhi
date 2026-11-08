@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.db.repository import store
+from backend.app.core.auth import create_test_jwt
 
 client = TestClient(app)
 
@@ -293,20 +294,29 @@ def test_10_user_isolation_between_accounts():
     """
     user_a = uuid4()
     user_b = uuid4()
+    token_a = create_test_jwt(user_id=user_a)
+    token_b = create_test_jwt(user_id=user_b)
 
     # User A creates a capture
-    pa = client.post("/api/v1/captures/text", json={
-        "user_id": str(user_a),
-        "text": "User A private thought"
-    }).json()
+    pa = client.post(
+        "/api/v1/captures/text",
+        json={"text": "User A private thought"},
+        headers={"Authorization": f"Bearer {token_a}"}
+    ).json()
 
     # User B lists captures
-    caps_b = client.get(f"/api/v1/captures?user_id={user_b}").json()
+    caps_b = client.get(
+        "/api/v1/captures",
+        headers={"Authorization": f"Bearer {token_b}"}
+    ).json()
     cap_ids_b = [c["id"] for c in caps_b]
     assert pa["capture_id"] not in cap_ids_b
 
     # User B lists proposals
-    props_b = client.get(f"/api/v1/proposals?user_id={user_b}").json()
+    props_b = client.get(
+        "/api/v1/proposals",
+        headers={"Authorization": f"Bearer {token_b}"}
+    ).json()
     prop_ids_b = [p["id"] for p in props_b]
     assert pa["id"] not in prop_ids_b
 

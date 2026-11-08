@@ -8,6 +8,31 @@ from backend.app.core.errors import AppException
 from backend.app.routers import captures, proposals, tasks, plans, memory, users
 from backend.app.db.supabase_client import supabase_client
 
+
+def validate_production_configuration():
+    """
+    Enforces fail-closed security guarantees during production startup:
+    - Cryptographic JWT verification configuration (secret or JWKS) must be present.
+    - SUPABASE_JWT_ISSUER must be configured.
+    - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.
+    - GEMINI_API_KEY must be configured (mock NLU is strictly forbidden in production).
+    """
+    env = getattr(settings, "ENVIRONMENT", "development").lower()
+    if env == "production":
+        if not getattr(settings, "SUPABASE_JWT_SECRET", None) and not getattr(settings, "SUPABASE_JWKS_URL", None):
+            raise RuntimeError("CRITICAL SECURITY ERROR: SUPABASE_JWT_SECRET or SUPABASE_JWKS_URL must be configured in production.")
+        if not getattr(settings, "SUPABASE_JWT_ISSUER", None):
+            raise RuntimeError("CRITICAL SECURITY ERROR: SUPABASE_JWT_ISSUER must be configured in production.")
+        if not getattr(settings, "SUPABASE_URL", None):
+            raise RuntimeError("CRITICAL SECURITY ERROR: SUPABASE_URL must be configured in production.")
+        if not (getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None) or getattr(settings, "SUPABASE_KEY", None)):
+            raise RuntimeError("CRITICAL SECURITY ERROR: SUPABASE_SERVICE_ROLE_KEY must be configured in production.")
+        if not getattr(settings, "GEMINI_API_KEY", None):
+            raise RuntimeError("CRITICAL SECURITY ERROR: GEMINI_API_KEY must be configured in production; mock NLU is forbidden.")
+
+
+validate_production_configuration()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,

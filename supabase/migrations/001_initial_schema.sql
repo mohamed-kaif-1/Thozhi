@@ -3,7 +3,7 @@
 -- Aligned 100% with Masterprd.md Section 10 & 06_DATABASE_ARCHITECTURE.md
 -- ====================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 
 -- 1. ENUMS
 DO $$ BEGIN
@@ -20,7 +20,7 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
     CREATE TYPE item_type_enum AS ENUM (
-        'TASK', 'COMMITMENT', 'IDEA', 'WISH', 'CONDITIONAL_INTENTION', 
+        'TASK', 'COMMITMENT', 'IDEA', 'WISH', 'CONDITIONAL_INTENTION',
         'QUESTION', 'REMINDER', 'COMPLETED', 'CANCELLED', 'INFORMATIONAL'
     );
 EXCEPTION WHEN duplicate_object THEN null; END $$;
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- 3. CAPTURES
 CREATE TABLE IF NOT EXISTS captures (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     input_type input_type_enum NOT NULL,
     transcript_text TEXT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS captures (
 
 -- 4. PROPOSALS
 CREATE TABLE IF NOT EXISTS proposals (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     capture_id UUID REFERENCES captures(id) ON DELETE SET NULL,
     status proposal_status_enum DEFAULT 'DRAFT' NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS proposals (
 
 -- 5. PROPOSAL_ITEMS
 CREATE TABLE IF NOT EXISTS proposal_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     proposal_id UUID NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     item_type item_type_enum NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS proposal_items (
 
 -- 6. TASKS (Approved items)
 CREATE TABLE IF NOT EXISTS tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source_proposal_item_id UUID REFERENCES proposal_items(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 -- 7. TASK_DEPENDENCIES
 CREATE TABLE IF NOT EXISTS task_dependencies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     predecessor_task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     successor_task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS task_dependencies (
 
 -- 8. AVAILABILITY_WINDOWS
 CREATE TABLE IF NOT EXISTS availability_windows (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS availability_windows (
 
 -- 9. BUSY_EVENTS
 CREATE TABLE IF NOT EXISTS busy_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     start_time TIMESTAMPTZ NOT NULL,
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS busy_events (
 
 -- 10. PLANS
 CREATE TABLE IF NOT EXISTS plans (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plan_date DATE NOT NULL,
     feasibility_status plan_feasibility_enum NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS plans (
 
 -- 11. PLAN_ITEMS
 CREATE TABLE IF NOT EXISTS plan_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     plan_id UUID NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
     task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     allocated_start TIMESTAMPTZ NOT NULL,
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS plan_items (
 
 -- 12. MEMORY_PREFERENCES
 CREATE TABLE IF NOT EXISTS memory_preferences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     preference_key VARCHAR(64) NOT NULL,
     preference_value JSONB NOT NULL,
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS memory_preferences (
 
 -- 13. CONTEXTUAL_SUMMARIES
 CREATE TABLE IF NOT EXISTS contextual_summaries (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     summary_type VARCHAR(64) NOT NULL,
     summary_text TEXT NOT NULL,
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS contextual_summaries (
 
 -- 14. APPROVAL_IDEMPOTENCY
 CREATE TABLE IF NOT EXISTS approval_idempotency (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     idempotency_key VARCHAR(255) NOT NULL UNIQUE,
     proposal_id UUID NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS approval_idempotency (
 
 -- 15. AUDIT_LOGS
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     event_type VARCHAR(64) NOT NULL,
     metadata JSONB DEFAULT '{}'::JSONB NOT NULL,
@@ -216,4 +216,3 @@ CREATE INDEX IF NOT EXISTS idx_prop_items_proposal_id ON proposal_items(proposal
 CREATE INDEX IF NOT EXISTS idx_tasks_user_date_status ON tasks(user_id, deadline, status);
 CREATE INDEX IF NOT EXISTS idx_plans_user_date ON plans(user_id, plan_date);
 CREATE INDEX IF NOT EXISTS idx_plan_items_plan_id ON plan_items(plan_id);
-

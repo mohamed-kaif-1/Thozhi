@@ -2,6 +2,54 @@ import { Proposal, ProposalApproveRequest, ProposalItemDecision, Plan, Task, Res
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+// ============================================================================
+// TOKEN MANAGEMENT & AUTH INTERCEPTOR
+// ============================================================================
+
+const AUTH_TOKEN_KEY = "thozhi_auth_token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+/**
+ * Centralized authenticated fetch wrapper.
+ * Intercepts all outgoing requests to inject the Bearer token.
+ * Dispatches an event when 401 Unauthorized is received so the session can be refreshed or redirected.
+ */
+export async function fetchWithAuth(input: string, init?: RequestInit): Promise<Response> {
+  const token = getAuthToken();
+  const headers = new Headers(init?.headers || {});
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, { ...init, headers });
+
+  if (response.status === 401 && token) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("thozhi:unauthorized"));
+    }
+  }
+
+  return response;
+}
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
 export interface ApprovalResponse {
   proposal_id: string;
   approved_tasks_count: number;
@@ -33,8 +81,12 @@ export interface DurationPrior {
   rationale: string;
 }
 
+// ============================================================================
+// CAPTURES & PROPOSALS
+// ============================================================================
+
 export async function captureText(text: string): Promise<Proposal> {
-  const res = await fetch(`${API_BASE}/captures/text`, {
+  const res = await fetchWithAuth(`${API_BASE}/captures/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, user_timezone: "Asia/Kolkata" }),
@@ -61,7 +113,7 @@ export async function captureAudio(audioBlob: Blob, language?: string): Promise<
     formData.append("language", language);
   }
 
-  const res = await fetch(`${API_BASE}/captures/audio`, {
+  const res = await fetchWithAuth(`${API_BASE}/captures/audio`, {
     method: "POST",
     body: formData,
   });
@@ -81,7 +133,7 @@ export async function submitProposalApproval(
     items: decisions,
   };
 
-  const res = await fetch(`${API_BASE}/proposals/${proposalId}/approve`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/${proposalId}/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -105,7 +157,7 @@ export async function submitProposalClarifications(
   proposalId: string,
   answers: ClarificationAnswer[]
 ): Promise<Proposal> {
-  const res = await fetch(`${API_BASE}/proposals/${proposalId}/clarify`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/${proposalId}/clarify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ answers }),
@@ -121,7 +173,7 @@ export async function translateProposal(
   proposalId: string,
   targetLanguage: "en" | "ta" | "original" | string
 ): Promise<Proposal> {
-  const res = await fetch(`${API_BASE}/proposals/${proposalId}/translate?target_language=${targetLanguage}`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/${proposalId}/translate?target_language=${targetLanguage}`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -131,8 +183,12 @@ export async function translateProposal(
   return res.json();
 }
 
+// ============================================================================
+// PLANS & SCHEDULES
+// ============================================================================
+
 export async function getTodayPlan(): Promise<Plan> {
-  const res = await fetch(`${API_BASE}/plans/today`);
+  const res = await fetchWithAuth(`${API_BASE}/plans/today`);
   if (!res.ok) {
     throw new Error("Failed to load today's plan");
   }
@@ -140,15 +196,19 @@ export async function getTodayPlan(): Promise<Plan> {
 }
 
 export async function getPlanForDate(targetDate: string): Promise<Plan> {
-  const res = await fetch(`${API_BASE}/plans/date/${targetDate}`);
+  const res = await fetchWithAuth(`${API_BASE}/plans/date/${targetDate}`);
   if (!res.ok) {
     throw new Error(`Failed to load plan for ${targetDate}`);
   }
   return res.json();
 }
 
+// ============================================================================
+// USER PROFILE
+// ============================================================================
+
 export async function getUserProfile(): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/users/me`);
+  const res = await fetchWithAuth(`${API_BASE}/users/me`);
   if (!res.ok) {
     throw new Error("Failed to load user profile");
   }
@@ -160,7 +220,7 @@ export async function updateUserProfile(payload: {
   email?: string;
   timezone?: string;
 }): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/users/me`, {
+  const res = await fetchWithAuth(`${API_BASE}/users/me`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -172,9 +232,13 @@ export async function updateUserProfile(payload: {
   return res.json();
 }
 
+// ============================================================================
+// TASKS
+// ============================================================================
+
 export async function listTasks(targetDate?: string): Promise<Task[]> {
   const url = targetDate ? `${API_BASE}/tasks?target_date=${targetDate}` : `${API_BASE}/tasks`;
-  const res = await fetch(url);
+  const res = await fetchWithAuth(url);
   if (!res.ok) {
     throw new Error("Failed to load tasks");
   }
@@ -182,7 +246,7 @@ export async function listTasks(targetDate?: string): Promise<Task[]> {
 }
 
 export async function completeTask(taskId: string): Promise<Task> {
-  const res = await fetch(`${API_BASE}/tasks/${taskId}/complete`, {
+  const res = await fetchWithAuth(`${API_BASE}/tasks/${taskId}/complete`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -192,7 +256,7 @@ export async function completeTask(taskId: string): Promise<Task> {
 }
 
 export async function reopenTask(taskId: string): Promise<Task> {
-  const res = await fetch(`${API_BASE}/tasks/${taskId}/reopen`, {
+  const res = await fetchWithAuth(`${API_BASE}/tasks/${taskId}/reopen`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -202,7 +266,7 @@ export async function reopenTask(taskId: string): Promise<Task> {
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/tasks/${taskId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -211,7 +275,7 @@ export async function deleteTask(taskId: string): Promise<void> {
 }
 
 export async function createTask(taskData: Partial<Task>): Promise<Task> {
-  const res = await fetch(`${API_BASE}/tasks`, {
+  const res = await fetchWithAuth(`${API_BASE}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(taskData),
@@ -224,7 +288,7 @@ export async function createTask(taskData: Partial<Task>): Promise<Task> {
 }
 
 export async function applyReschedule(reschedules: RescheduleSuggestion[]): Promise<Plan> {
-  const res = await fetch(`${API_BASE}/plans/reschedule/apply`, {
+  const res = await fetchWithAuth(`${API_BASE}/plans/reschedule/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reschedules }),
@@ -235,8 +299,12 @@ export async function applyReschedule(reschedules: RescheduleSuggestion[]): Prom
   return res.json();
 }
 
+// ============================================================================
+// MEMORY & PERSONALIZATION
+// ============================================================================
+
 export async function listMemoryPreferences(): Promise<MemoryPreference[]> {
-  const res = await fetch(`${API_BASE}/memory/preferences`);
+  const res = await fetchWithAuth(`${API_BASE}/memory/preferences`);
   if (!res.ok) {
     throw new Error("Failed to load memory preferences");
   }
@@ -244,7 +312,7 @@ export async function listMemoryPreferences(): Promise<MemoryPreference[]> {
 }
 
 export async function createMemoryPreference(pref: Partial<MemoryPreference>): Promise<MemoryPreference> {
-  const res = await fetch(`${API_BASE}/memory/preferences`, {
+  const res = await fetchWithAuth(`${API_BASE}/memory/preferences`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(pref),
@@ -257,14 +325,14 @@ export async function createMemoryPreference(pref: Partial<MemoryPreference>): P
 
 export async function toggleMemoryPreference(prefId: string, isActive?: boolean): Promise<MemoryPreference> {
   const endpoint = `${API_BASE}/memory/preferences/${prefId}/toggle`;
-  const res = await fetch(endpoint, {
+  const res = await fetchWithAuth(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: isActive !== undefined ? JSON.stringify({ is_active: isActive }) : undefined,
   });
   if (!res.ok) {
     // fallback to PATCH if toggle endpoint returns 404/405
-    const patchRes = await fetch(`${API_BASE}/memory/preferences/${prefId}`, {
+    const patchRes = await fetchWithAuth(`${API_BASE}/memory/preferences/${prefId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: isActive ?? false }),
@@ -276,7 +344,7 @@ export async function toggleMemoryPreference(prefId: string, isActive?: boolean)
 }
 
 export async function deleteMemoryPreference(prefId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/memory/preferences/${prefId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/memory/preferences/${prefId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -285,7 +353,7 @@ export async function deleteMemoryPreference(prefId: string): Promise<void> {
 }
 
 export async function getDurationPriorSuggestions(): Promise<DurationPrior[]> {
-  const res = await fetch(`${API_BASE}/memory/duration-priors/suggestions`);
+  const res = await fetchWithAuth(`${API_BASE}/memory/duration-priors/suggestions`);
   if (!res.ok) {
     throw new Error("Failed to load duration suggestions");
   }
@@ -293,7 +361,7 @@ export async function getDurationPriorSuggestions(): Promise<DurationPrior[]> {
 }
 
 export async function exportPersonalData(): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/memory/export`, {
+  const res = await fetchWithAuth(`${API_BASE}/memory/export`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -303,7 +371,7 @@ export async function exportPersonalData(): Promise<Blob> {
 }
 
 export async function purgeAllPersonalData(): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/memory/purge`, {
+  const res = await fetchWithAuth(`${API_BASE}/memory/purge`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -312,10 +380,12 @@ export async function purgeAllPersonalData(): Promise<{ message: string }> {
   return res.json();
 }
 
-export async function listCaptures(userId?: string): Promise<CaptureRecord[]> {
-  const url = new URL(`${API_BASE}/captures`);
-  if (userId) url.searchParams.append("user_id", userId);
-  const res = await fetch(url.toString());
+// ============================================================================
+// CAPTURES & PROPOSALS EXTENDED
+// ============================================================================
+
+export async function listCaptures(): Promise<CaptureRecord[]> {
+  const res = await fetchWithAuth(`${API_BASE}/captures`);
   if (!res.ok) {
     throw new Error("Failed to load captures");
   }
@@ -323,7 +393,7 @@ export async function listCaptures(userId?: string): Promise<CaptureRecord[]> {
 }
 
 export async function getCapture(captureId: string): Promise<CaptureRecord> {
-  const res = await fetch(`${API_BASE}/captures/${captureId}`);
+  const res = await fetchWithAuth(`${API_BASE}/captures/${captureId}`);
   if (!res.ok) {
     throw new Error(`Failed to load capture ${captureId}`);
   }
@@ -331,7 +401,7 @@ export async function getCapture(captureId: string): Promise<CaptureRecord> {
 }
 
 export async function deleteCapture(captureId: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/captures/${captureId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/captures/${captureId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -341,7 +411,7 @@ export async function deleteCapture(captureId: string): Promise<{ message: strin
 }
 
 export async function clearCaptures(): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/captures/clear`, {
+  const res = await fetchWithAuth(`${API_BASE}/captures/clear`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -354,7 +424,7 @@ export async function listProposals(status?: string, captureId?: string): Promis
   const url = new URL(`${API_BASE}/proposals`);
   if (status) url.searchParams.append("status", status);
   if (captureId) url.searchParams.append("capture_id", captureId);
-  const res = await fetch(url.toString());
+  const res = await fetchWithAuth(url.toString());
   if (!res.ok) {
     throw new Error("Failed to load proposals");
   }
@@ -362,7 +432,7 @@ export async function listProposals(status?: string, captureId?: string): Promis
 }
 
 export async function getProposal(proposalId: string): Promise<Proposal> {
-  const res = await fetch(`${API_BASE}/proposals/${proposalId}`);
+  const res = await fetchWithAuth(`${API_BASE}/proposals/${proposalId}`);
   if (!res.ok) {
     throw new Error(`Failed to load proposal ${proposalId}`);
   }
@@ -370,7 +440,7 @@ export async function getProposal(proposalId: string): Promise<Proposal> {
 }
 
 export async function rejectProposal(proposalId: string, reason?: string): Promise<Proposal> {
-  const res = await fetch(`${API_BASE}/proposals/${proposalId}/reject`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/${proposalId}/reject`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reason: reason || "User rejected proposal" }),
@@ -386,7 +456,7 @@ export async function batchApproveProposals(
   proposalIds: string[],
   idempotencyKey?: string
 ): Promise<{ affected_count: number; proposal_ids: string[]; message: string }> {
-  const res = await fetch(`${API_BASE}/proposals/batch/approve`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/batch/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -404,7 +474,7 @@ export async function batchRejectProposals(
   proposalIds: string[],
   reason?: string
 ): Promise<{ affected_count: number; proposal_ids: string[]; message: string }> {
-  const res = await fetch(`${API_BASE}/proposals/batch/reject`, {
+  const res = await fetchWithAuth(`${API_BASE}/proposals/batch/reject`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -417,4 +487,3 @@ export async function batchRejectProposals(
   }
   return res.json();
 }
-

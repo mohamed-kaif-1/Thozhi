@@ -11,7 +11,7 @@ class CaptureCreate(BaseModel):
     original_transcript: Optional[str] = None
     translated_transcript: Optional[str] = None
     detected_language: str = "Tanglish"
-    processing_status: str = "COMPLETED"
+    processing_status: str = "PROCESSED"
     provider_metadata: Optional[dict] = Field(default_factory=dict)
 
 class CaptureResponse(BaseModel):
@@ -22,7 +22,7 @@ class CaptureResponse(BaseModel):
     original_transcript: Optional[str] = None
     translated_transcript: Optional[str] = None
     detected_language: str = "Tanglish"
-    processing_status: str = "COMPLETED"
+    processing_status: str = "PROCESSED"
     lifecycle_status: str = "PENDING_REVIEW"
     created_at: datetime
     proposal_ids: List[UUID] = Field(default_factory=list)
